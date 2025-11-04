@@ -24,11 +24,17 @@
   NODE_OPTIONS = "--max_old_space_size=8096"
 
 # Redirect rules for SPA (Single Page Application)
-# All routes should redirect to index.html for client-side routing
+# IMPORTANT: For SPA routing to work, all routes must redirect to index.html
+# Netlify will automatically serve actual files (JS, CSS, images) if they exist
+
+# Catch-all redirect: redirect all non-file requests to index.html
+# This allows React Router to handle client-side routing
+# The 'force = false' means: only redirect if the requested file doesn't exist
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
+  force = false
 
 # Security headers
 [[headers]]

@@ -1,6 +1,4 @@
-# Specific to our deploy-preview
-# Our docs are published using CircleCI + GitBook
-# Configure redirects using netlify.toml
+# Netlify redirects file - This will be copied to dist during build
+# All routes that don't match actual files will redirect to index.html for SPA routing
 
-# Spa
-/* /index.html 200
+/*    /index.html   200

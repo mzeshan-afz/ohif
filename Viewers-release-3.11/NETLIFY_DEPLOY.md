@@ -128,11 +128,65 @@ Or modify the build command in `netlify.toml`:
 2. **Check redirects**: Ensure `index.html` exists in the dist folder
 3. **Check browser console**: Look for any JavaScript errors
 
+### 404 Page Not Found Errors
+
+**This is the most common issue with SPAs on Netlify!**
+
+#### Why it happens:
+- When you navigate directly to a route like `/viewer/dicomweb`, Netlify looks for that file/folder
+- If it doesn't exist, Netlify returns a 404
+- React Router needs `index.html` to handle all routes client-side
+
+#### Solutions:
+
+**Solution 1: Verify redirect rules are working**
+1. Check that `netlify.toml` has the redirect rule:
+   ```toml
+   [[redirects]]
+     from = "/*"
+     to = "/index.html"
+     status = 200
+     force = false
+   ```
+
+2. **Check if `_redirects` file exists in dist folder**:
+   - After build, verify `platform/app/dist/_redirects` exists
+   - If not, the `_redirects` file in `platform/app/public/` will be copied during build
+
+**Solution 2: Manual fix in Netlify Dashboard**
+1. Go to Site settings → Build & deploy → Post processing
+2. Add a redirect rule:
+   - From: `/*`
+   - To: `/index.html`
+   - Status: `200`
+
+**Solution 3: Verify build output**
+1. Check that `index.html` exists in `platform/app/dist/`
+2. Check that static assets (JS, CSS) are in `platform/app/dist/static/`
+3. Verify the build completed successfully
+
+**Solution 4: Test redirects locally**
+1. After building, test locally:
+   ```bash
+   cd platform/app/dist
+   npx serve .
+   ```
+2. Try accessing different routes - they should all load `index.html`
+
+**Solution 5: Clear Netlify cache**
+1. Go to Site settings → Build & deploy → Deploy settings
+2. Clear build cache
+3. Trigger a new deployment
+
 ### Routing Issues
 
 - The `netlify.toml` includes SPA redirect rules
 - All routes should redirect to `index.html` with status 200
-- If you have issues, verify the redirect rule is active
+- The `_redirects` file in `platform/app/public/` will be copied to dist during build
+- If you still have issues:
+  1. Check Netlify deploy logs for redirect rule processing
+  2. Verify the redirect rule appears in the deploy preview
+  3. Test with `curl` or browser dev tools to see response headers
 
 ## Performance Optimization
 

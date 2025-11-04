@@ -1,0 +1,18 @@
+# Netlify redirects file (alternative method)
+# This file should be placed in the publish directory (platform/app/dist)
+# Static assets are served normally, all other routes redirect to index.html
+
+# Serve static assets
+/static/*  /static/:splat  200
+/*.js      /:splat.js      200
+/*.css     /:splat.css     200
+/*.png     /:splat.png     200
+/*.jpg     /:splat.jpg     200
+/*.svg     /:splat.svg     200
+/*.ico     /:splat.ico      200
+/*.json    /:splat.json    200
+/*.map     /:splat.map     200
+
+# SPA fallback - all other routes go to index.html
+/*         /index.html     200
+
