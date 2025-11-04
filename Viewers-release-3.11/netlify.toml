@@ -1,0 +1,79 @@
+# Netlify Configuration for OHIF Viewer
+#
+# TOML Reference:
+# https://www.netlify.com/docs/netlify-toml-reference/
+
+[build]
+  # Build command - runs from root directory
+  command = "cd platform/app && yarn run build:viewer:ci"
+  # Publish directory - where the built files are located
+  publish = "platform/app/dist"
+  # Base directory for the build
+  base = ""
+
+# Build environment variables
+[build.environment]
+  # Use development mode to include devDependencies needed for build
+  NODE_ENV = "development"
+  NODE_VERSION = "20.18.1"
+  YARN_VERSION = "1.22.5"
+  # Install all dependencies including optional ones
+  YARN_FLAGS = "--no-ignore-optional --pure-lockfile"
+  NETLIFY_USE_YARN = "true"
+  # Set memory limit for build process
+  NODE_OPTIONS = "--max_old_space_size=8096"
+
+# Redirect rules for SPA (Single Page Application)
+# All routes should redirect to index.html for client-side routing
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Security headers
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    
+    # Cache control for HTML files
+    cache-control = '''
+    max-age=0,
+    no-cache,
+    no-store,
+    must-revalidate'''
+
+# Cache static assets (JS, CSS, images)
+[[headers]]
+  for = "/static/*"
+  [headers.values]
+    cache-control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/*.js"
+  [headers.values]
+    cache-control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/*.css"
+  [headers.values]
+    cache-control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/*.png"
+  [headers.values]
+    cache-control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/*.jpg"
+  [headers.values]
+    cache-control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/*.svg"
+  [headers.values]
+    cache-control = "public, max-age=31536000, immutable"
+
