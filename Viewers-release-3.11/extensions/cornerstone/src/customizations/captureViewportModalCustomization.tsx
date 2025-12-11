@@ -59,16 +59,16 @@ function ViewportDownloadFormNew({
               height: dimensions.height,
               width: dimensions.width,
               position: 'relative',
+              maxWidth: '100%',
+              maxHeight: '100%',
             }}
+            className="max-w-full max-h-full"
             data-viewport-uid={viewportId}
             ref={setViewportElement}
           >
             {warningState.enabled && showWarningMessage && (
               <div
-                className="text-foreground absolute left-1/2 bottom-[5px] z-[1000] -translate-x-1/2 whitespace-nowrap rounded bg-black p-3 text-xs font-bold"
-                style={{
-                  fontSize: '12px',
-                }}
+                className="text-foreground absolute left-1/2 bottom-[5px] z-[1000] -translate-x-1/2 rounded bg-black p-2 sm:p-3 text-[10px] sm:text-xs font-bold max-w-[90%] sm:max-w-none sm:whitespace-nowrap"
               >
                 {warningState.value}
               </div>
@@ -77,18 +77,22 @@ function ViewportDownloadFormNew({
         </ImageModal.ImageVisual>
 
         <ImageModal.ImageOptions>
-          <div className="flex items-end space-x-2">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-2 sm:space-x-2">
+            <div className="flex-1">
             <ImageModal.Filename
               value={filename}
               onChange={e => setFilename(e.target.value)}
             >
               File name
             </ImageModal.Filename>
+            </div>
+            <div className="flex-shrink-0">
             <ImageModal.Filetype
               selected={fileType}
               onSelect={setFileType}
               options={fileTypeOptions}
             />
+            </div>
           </div>
 
           <ImageModal.ImageSize

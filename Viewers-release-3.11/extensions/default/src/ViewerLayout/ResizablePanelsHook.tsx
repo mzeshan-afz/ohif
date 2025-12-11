@@ -100,8 +100,8 @@ const useResizablePanels = (
         panelGroupDefinition.left.initialExpandedOffsetWidth
       );
       if (leftResizablePanelExpandedSize > 0) {
-        resizableLeftPanelAPIRef?.current?.expand(leftResizablePanelExpandedSize);
-        setMinMaxWidth(leftPanelElem, panelGroupDefinition.left.initialExpandedOffsetWidth);
+      resizableLeftPanelAPIRef?.current?.expand(leftResizablePanelExpandedSize);
+      setMinMaxWidth(leftPanelElem, panelGroupDefinition.left.initialExpandedOffsetWidth);
       }
     }
 
@@ -110,8 +110,8 @@ const useResizablePanels = (
         panelGroupDefinition.right.initialExpandedOffsetWidth
       );
       if (rightResizablePanelExpandedSize > 0) {
-        resizableRightPanelAPIRef?.current?.expand(rightResizablePanelExpandedSize);
-        setMinMaxWidth(rightPanelElem, panelGroupDefinition.right.initialExpandedOffsetWidth);
+      resizableRightPanelAPIRef?.current?.expand(rightResizablePanelExpandedSize);
+      setMinMaxWidth(rightPanelElem, panelGroupDefinition.right.initialExpandedOffsetWidth);
       }
     }
   }, []); // no dependencies because this useLayoutEffect is only needed on the very first render
@@ -144,7 +144,7 @@ const useResizablePanels = (
         leftPanelExpandedWidth + panelGroupDefinition.shared.expandedInsideBorderSize
       );
       if (leftSize > 0) {
-        resizableLeftPanelAPIRef.current?.resize(leftSize);
+      resizableLeftPanelAPIRef.current?.resize(leftSize);
       }
     }
 
@@ -153,7 +153,7 @@ const useResizablePanels = (
         rightPanelExpandedWidth + panelGroupDefinition.shared.expandedInsideBorderSize
       );
       if (rightSize > 0) {
-        resizableRightPanelAPIRef?.current?.resize(rightSize);
+      resizableRightPanelAPIRef?.current?.resize(rightSize);
       }
     }
 

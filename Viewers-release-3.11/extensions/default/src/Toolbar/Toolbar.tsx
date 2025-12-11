@@ -54,16 +54,16 @@ export function Toolbar({ buttonSection = 'primary', viewportId, location }: Too
 
   // Enhanced props factory for tools
   const getEnhancedProps = (toolDef) => {
-    const { id, Component, componentProps } = toolDef;
+        const { id, Component, componentProps } = toolDef;
     return {
-      ...componentProps,
-      isOpen: isItemOpen(id, viewportId),
-      isLocked: isItemLocked(id, viewportId),
-      onOpen: () => openItem(id, viewportId),
-      onClose: () => closeItem(id, viewportId),
-      onToggleLock: () => toggleLock(id, viewportId),
-      viewportId,
-    };
+          ...componentProps,
+          isOpen: isItemOpen(id, viewportId),
+          isLocked: isItemLocked(id, viewportId),
+          onOpen: () => openItem(id, viewportId),
+          onClose: () => closeItem(id, viewportId),
+          onToggleLock: () => toggleLock(id, viewportId),
+          viewportId,
+        };
   };
 
   // Render a single tool
@@ -75,25 +75,25 @@ export function Toolbar({ buttonSection = 'primary', viewportId, location }: Too
     const { id, Component, componentProps } = toolDef;
     const enhancedProps = getEnhancedProps(toolDef);
 
-    const tool = (
-      <Component
-        key={id}
-        id={id}
-        location={location}
-        onInteraction={args => {
-          onInteraction({
-            ...args,
-            itemId: id,
-            viewportId,
-          });
+        const tool = (
+          <Component
+            key={id}
+            id={id}
+            location={location}
+            onInteraction={args => {
+              onInteraction({
+                ...args,
+                itemId: id,
+                viewportId,
+              });
           // Close popover on mobile after interaction
           if (isMobile) {
             setIsPopoverOpen(false);
           }
-        }}
-        {...enhancedProps}
-      />
-    );
+            }}
+            {...enhancedProps}
+          />
+        );
 
     return <div key={id} className="flex-shrink-0">{tool}</div>;
   };

@@ -26,7 +26,7 @@ interface ImageBodyProps {
   className?: string;
 }
 function ImageBody({ children, className }: ImageBodyProps) {
-  return <div className={cn('flex flex-col sm:flex-row', className)}>{children}</div>;
+  return <div className={cn('flex flex-col md:flex-row gap-4', className)}>{children}</div>;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -40,12 +40,13 @@ function ImageVisual({ children, className }: ImageVisualProps) {
   return (
     <div
       className={cn(
-        'flex-1 items-center justify-center rounded-2xl bg-black/80 p-4 sm:flex-[7]',
+        'flex-1 items-center justify-center rounded-2xl bg-black/80 p-2 sm:p-4 md:flex-[7]',
         'flex', // ensure the container is a flex box
+        'min-h-[300px]', // minimum height on mobile
         className
       )}
     >
-      <div className="h-[512px] w-[512px] overflow-auto">{children}</div>
+      <div className="h-[300px] w-full max-w-full sm:h-[400px] sm:w-[400px] md:h-[512px] md:w-[512px] overflow-auto flex items-center justify-center">{children}</div>
     </div>
   );
 }
@@ -58,7 +59,7 @@ interface ImageOptionsProps {
   className?: string;
 }
 function ImageOptions({ children, className }: ImageOptionsProps) {
-  return <div className={cn('flex-1 space-y-5 p-4 sm:flex-[3]', className)}>{children}</div>;
+  return <div className={cn('flex-1 space-y-3 sm:space-y-4 md:space-y-5 p-3 sm:p-4 md:flex-[3]', className)}>{children}</div>;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -74,10 +75,10 @@ interface FilenameProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>
 function Filename({ children, className, value, onChange, ...props }: FilenameProps) {
   return (
     <div className={cn('text-foreground space-y-1', className)}>
-      <label className="block text-base">{children}</label>
+      <label className="block text-sm sm:text-base">{children}</label>
       <Input
         {...props}
-        className={cn('w-full', className)}
+        className={cn('w-full text-sm sm:text-base', className)}
         value={value}
         onChange={onChange ?? (() => {})}
       />
@@ -112,7 +113,7 @@ function Filetype({ selected, onSelect, className, options = [] }: FiletypeProps
     >
       <SelectTrigger
         aria-label="File type"
-        className={cn('w-[5.5rem] sm:w-24', className)}
+        className={cn('w-[4.5rem] sm:w-[5.5rem] md:w-24 text-sm sm:text-base', className)}
       >
         <SelectValue />
       </SelectTrigger>
@@ -157,30 +158,30 @@ function ImageSize({
 }: ImageSizeProps) {
   return (
     <div className={cn('text-foreground space-y-1', className)}>
-      <label className="block text-base">{children}</label>
+      <label className="block text-sm sm:text-base">{children}</label>
 
       {/* Flex container for width/height inputs */}
-      <div className="flex items-center space-x-4">
+      <div className="flex items-center space-x-2 sm:space-x-4">
         {/* Width group */}
-        <div className="flex items-center space-x-2">
-          <span className="text-foreground text-base">W</span>
+        <div className="flex items-center space-x-1 sm:space-x-2">
+          <span className="text-foreground text-sm sm:text-base">W</span>
           <Input
             value={width}
             onChange={onWidthChange ?? (() => {})}
             placeholder="Width"
-            className="w-20"
+            className="w-16 sm:w-20 text-sm"
             max={maxWidth}
           />
         </div>
 
         {/* Height group */}
-        <div className="text-foreground flex items-center space-x-2 text-base">
-          <span className="text-foreground text-base">H</span>
+        <div className="text-foreground flex items-center space-x-1 sm:space-x-2 text-sm sm:text-base">
+          <span className="text-foreground text-sm sm:text-base">H</span>
           <Input
             value={height}
             onChange={onHeightChange ?? (() => {})}
             placeholder="Height"
-            className="w-20"
+            className="w-16 sm:w-20 text-sm"
             max={maxHeight}
           />
         </div>
@@ -214,7 +215,7 @@ function SwitchOption({
         defaultChecked={defaultChecked}
         onCheckedChange={val => onCheckedChange?.(val)}
       />
-      <span className="text-base">{children}</span>
+      <span className="text-sm sm:text-base">{children}</span>
     </div>
   );
 }

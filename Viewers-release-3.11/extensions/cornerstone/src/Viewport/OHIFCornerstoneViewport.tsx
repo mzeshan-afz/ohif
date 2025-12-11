@@ -1,9 +1,8 @@
 import React, { useEffect, useRef, useCallback, useState } from 'react';
 import * as cs3DTools from '@cornerstonejs/tools';
 import { Enums, eventTarget, getEnabledElement } from '@cornerstonejs/core';
-import { MeasurementService, useViewportRef } from '@ohif/core';
-import { useViewportDialog } from '@ohif/ui-next';
-import type { Types as csTypes } from '@cornerstonejs/core';
+import { MeasurementService, useViewportRef, useSystem } from '@ohif/core';
+import { useViewportDialog, Icons } from '@ohif/ui-next';import type { Types as csTypes } from '@cornerstonejs/core';
 
 import { setEnabledElement } from '../state';
 
@@ -95,6 +94,7 @@ const OHIFCornerstoneViewport = React.memo(
       measurementService,
     } = servicesManager.services;
 
+    const { commandsManager } = useSystem();
     const [viewportDialogState] = useViewportDialog();
     // useCallback for scroll bar height calculation
     const setImageScrollBarHeight = useCallback(() => {
@@ -306,6 +306,18 @@ const OHIFCornerstoneViewport = React.memo(
 
     const Notification = customizationService.getCustomization('ui.notificationComponent');
 
+    // Handler for image navigation buttons
+    const handleImageNavigation = useCallback(
+      (direction: number) => {
+        if (direction === -1) {
+          commandsManager.runCommand('previousImage', { viewportId });
+        } else {
+          commandsManager.runCommand('nextImage', { viewportId });
+        }
+      },
+      [commandsManager, viewportId]
+    );
+
     return (
       <React.Fragment>
         <div className="viewport-wrapper">
@@ -334,6 +346,46 @@ const OHIFCornerstoneViewport = React.memo(
             viewportId={viewportId}
             servicesManager={servicesManager}
           />
+       <>
+  {/* Previous Image Button - Left Side */}
+{/* Navigation Buttons - Responsive Layout */}
+<div className="absolute bottom-14 left-1/2 -translate-x-1/2 z-10 flex gap-2 md:hidden">
+  {/* Previous Image Button - Mobile: Left */}
+  <button
+    onClick={() => handleImageNavigation(-1)}
+    className="cursor-pointer flex items-center justify-center shrink-0 text-highlight active:text-foreground hover:bg-primary/30 rounded p-2"
+    title="Previous Image"
+  >
+    <Icons.ArrowLeftBold className="w-8 h-8" />
+  </button>
+  
+  {/* Next Image Button - Mobile: Right */}
+  <button
+    onClick={() => handleImageNavigation(1)}
+    className="cursor-pointer flex items-center justify-center shrink-0 text-highlight active:text-foreground hover:bg-primary/30 rounded p-2"
+    title="Next Image"
+  >
+    <Icons.ArrowRightBold className="w-8 h-8" />
+  </button>
+</div>
+
+{/* Desktop: Separate buttons on left and right */}
+<button
+  onClick={() => handleImageNavigation(-1)}
+  className="hidden md:flex absolute left-6 top-1/2 -translate-y-1/2 z-10 cursor-pointer items-center justify-center shrink-0 text-highlight active:text-foreground hover:bg-primary/30 rounded p-2"
+  title="Previous Image (Arrow Up)"
+>
+  <Icons.ArrowLeftBold className="w-10 h-10" />
+</button>
+
+<button
+  onClick={() => handleImageNavigation(1)}
+  className="hidden md:flex absolute right-6 top-1/2 -translate-y-1/2 z-10 cursor-pointer items-center justify-center shrink-0 text-highlight active:text-foreground hover:bg-primary/30 rounded p-2"
+  title="Next Image (Arrow Down)"
+>
+  <Icons.ArrowRightBold className="w-10 h-10" />
+</button>
+</>
           <ActiveViewportBehavior
             viewportId={viewportId}
             servicesManager={servicesManager}

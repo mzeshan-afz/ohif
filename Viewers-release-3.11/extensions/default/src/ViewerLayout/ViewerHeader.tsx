@@ -100,9 +100,9 @@ function ViewerHeader({
 
   return (
     <Header
-      menuOptions={menuOptions}
-      isReturnEnabled={!!appConfig.showStudyList}
-      onClickReturnButton={onClickReturnButton}
+      menuOptions={[]}
+      isReturnEnabled={false}
+     // onClickReturnButton={onClickReturnButton}
       WhiteLabeling={appConfig.whiteLabeling}
       Secondary={<Toolbar buttonSection="secondary" />}
       PatientInfo={

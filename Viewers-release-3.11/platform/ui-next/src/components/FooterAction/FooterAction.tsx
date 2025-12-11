@@ -55,7 +55,7 @@ FooterAction.Left = ({ children }: FooterActionProps) => {
 FooterAction.Left.displayName = 'FooterAction.Left';
 
 FooterAction.Right = ({ children }: FooterActionProps) => {
-  return <div className="flex items-center space-x-2">{children}</div>;
+  return <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:space-x-2 w-full sm:w-auto">{children}</div>;
 };
 FooterAction.Right.displayName = 'FooterAction.Right';
 
@@ -65,7 +65,7 @@ FooterAction.Primary = ({ children, onClick, className = 'min-w-[80px]' }: Actio
     <Button
       variant="default"
       onClick={onClick}
-      className={className}
+      className={cn('w-full sm:w-auto', className)}
     >
       {children}
     </Button>
@@ -79,7 +79,7 @@ FooterAction.Secondary = ({ children, onClick, className = 'min-w-[80px]' }: Act
     <Button
       variant="secondary"
       onClick={onClick}
-      className={className}
+      className={cn('w-full sm:w-auto', className)}
     >
       {children}
     </Button>

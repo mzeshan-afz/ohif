@@ -23,7 +23,7 @@ function WrappedCinePlayer({
       return;
     }
 
-    const { isPlaying = false, frameRate = 24 } = cines[viewportId];
+    const { isPlaying = false, frameRate = 1 } = cines[viewportId];
     const validFrameRate = Math.max(frameRate, 1);
 
     return isPlaying
@@ -38,17 +38,18 @@ function WrappedCinePlayer({
 
     const { viewports } = viewportGridService.getState();
     const { displaySetInstanceUIDs } = viewports.get(viewportId);
-    let frameRate = 24;
+    let frameRate = 1; // Always default to 1, ignore DICOM FrameRate tag
     let isPlaying = cines[viewportId]?.isPlaying || false;
     displaySetInstanceUIDs.forEach(displaySetInstanceUID => {
       const displaySet = displaySetService.getDisplaySetByUID(displaySetInstanceUID);
 
-      if (displaySet.FrameRate) {
-        // displaySet.FrameRate corresponds to DICOM tag (0018,1063) which is defined as the the frame time in milliseconds
-        // So a bit of math to get the actual frame rate.
-        frameRate = Math.round(1000 / displaySet.FrameRate);
-        isPlaying ||= !!appConfig.autoPlayCine;
-      }
+      // Commented out to always use default frameRate of 1 instead of reading from DICOM tag
+      // if (displaySet.FrameRate) {
+      //   // displaySet.FrameRate corresponds to DICOM tag (0018,1063) which is defined as the the frame time in milliseconds
+      //   // So a bit of math to get the actual frame rate.
+      //   frameRate = Math.round(1000 / displaySet.FrameRate);
+      //   isPlaying ||= !!appConfig.autoPlayCine;
+      // }
 
       // check if the displaySet is dynamic and set the dynamic info
       if (displaySet.isDynamicVolume) {

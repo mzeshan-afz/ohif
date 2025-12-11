@@ -74,25 +74,21 @@ function Header({
           "relative h-[48px] items-center",
           isMobile ? "flex" : ""
         )}>
-          {/* Left side: Mobile panel toggle, Return button, Logo */}
+          {/* Left side: Panel toggle, Return button, Logo */}
           <div className={classNames(
-            'absolute top-1/2 flex -translate-y-1/2 items-center z-10',
-            isMobile ? 'left-1 gap-1' : 'left-0 gap-2'
+            'absolute top-1/2 flex -translate-y-1/2 items-center',
+            isMobile ? 'left-1 gap-1 z-50' : 'left-0 gap-2 z-10'
           )}>
-            {/* Mobile: Left Panel Toggle */}
-            {isMobile && onToggleLeftPanel && (
+            {/* Left Panel Toggle - Only show when panel is closed */}
+            {onToggleLeftPanel && !leftPanelOpen && (
               <Button
                 variant="ghost"
                 size="icon"
-                className="text-primary hover:bg-primary-dark h-8 w-8 flex-shrink-0 md:hidden"
+                className="text-primary hover:bg-primary-dark h-8 w-8 flex-shrink-0"
                 onClick={onToggleLeftPanel}
-                aria-label={leftPanelOpen ? 'Close left panel' : 'Open left panel'}
+                aria-label="Open left panel"
               >
-                {leftPanelOpen ? (
-                  <Icons.Close className="h-5 w-5" />
-                ) : (
-                  <Icons.NavigationPanelReveal className="h-5 w-5 rotate-180" />
-                )}
+                <Icons.NavigationPanelReveal className="h-5 w-5 rotate-180" />
               </Button>
             )}
             
@@ -112,9 +108,9 @@ function Header({
                 )} />
               )}
               <div className={isMobile ? 'ml-0.5' : 'ml-1'}>
-                {WhiteLabeling?.createLogoComponentFn?.(React, props) || (
+                {/* {WhiteLabeling?.createLogoComponentFn?.(React, props) || (
                   <Icons.OHIFLogo className={isMobile ? 'h-6 w-6' : ''} />
-                )}
+                )} */}
               </div>
             </div>
           </div>
@@ -148,8 +144,8 @@ function Header({
 
           {/* Right side: Undo/Redo, Patient Info, Menu, Mobile panel toggle */}
           <div className={classNames(
-            'absolute top-1/2 flex -translate-y-1/2 select-none items-center z-10',
-            isMobile ? 'right-1 gap-0.5' : 'right-0 gap-1'
+            'absolute top-1/2 flex -translate-y-1/2 select-none items-center',
+            isMobile ? 'right-1 gap-0.5 z-50' : 'right-0 gap-1 z-10'
           )}>
             {UndoRedo && (
               <>
@@ -178,28 +174,24 @@ function Header({
               </>
             )}
             
-            {/* Mobile: Right Panel Toggle */}
-            {isMobile && onToggleRightPanel && (
+            {/* Right Panel Toggle - Only show when panel is closed */}
+            {onToggleRightPanel && !rightPanelOpen && (
               <>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="text-primary hover:bg-primary-dark h-8 w-8 flex-shrink-0 md:hidden"
+                  className="text-primary hover:bg-primary-dark h-8 w-8 flex-shrink-0"
                   onClick={onToggleRightPanel}
-                  aria-label={rightPanelOpen ? 'Close right panel' : 'Open right panel'}
+                  aria-label="Open right panel"
                 >
-                  {rightPanelOpen ? (
-                    <Icons.Close className="h-5 w-5" />
-                  ) : (
-                    <Icons.NavigationPanelReveal className="h-5 w-5" />
-                  )}
+                  <Icons.NavigationPanelReveal className="h-5 w-5 rotate-0" />
                 </Button>
                 <div className="w-1 flex-shrink-0"></div>
               </>
             )}
 
             {/* Menu dropdown - Always last, always visible, never shrinks */}
-            <div className="flex-shrink-0 relative z-20">
+            {/* <div className="flex-shrink-0 relative z-20">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -235,7 +227,7 @@ function Header({
                   })}
                 </DropdownMenuContent>
               </DropdownMenu>
-            </div>
+            </div> */}
           </div>
         </div>
       </NavBar>

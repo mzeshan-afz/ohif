@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import PropTypes from 'prop-types';
+import classNames from 'classnames';
 
 import { InvestigationalUseDialog, Button, Icons } from '@ohif/ui-next';
 import { HangingProtocolService, CommandsManager } from '@ohif/core';
@@ -131,6 +132,7 @@ function ViewerLayout({
     return { entry };
   };
 
+  
   useEffect(() => {
     const { unsubscribe } = hangingProtocolService.subscribe(
       HangingProtocolService.EVENTS.PROTOCOL_CHANGED,
@@ -189,16 +191,14 @@ function ViewerLayout({
     setRightPanelClosed(prev => !prev);
   }, []);
 
-  // Close panels when clicking outside on mobile
+  // Close panels when clicking outside (works on both mobile and desktop)
   const handleOverlayClick = useCallback((side: 'left' | 'right') => {
-    if (isMobile) {
-      if (side === 'left') {
-        setLeftPanelClosed(true);
-      } else {
-        setRightPanelClosed(true);
-      }
+    if (side === 'left') {
+      setLeftPanelClosed(true);
+    } else {
+      setRightPanelClosed(true);
     }
-  }, [isMobile]);
+  }, []);
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-black">
@@ -217,15 +217,20 @@ function ViewerLayout({
         <React.Fragment>
           {showLoadingIndicator && <LoadingIndicatorProgress className="h-full w-full bg-black" />}
           
-          {/* Mobile: Left Panel Overlay */}
-          {isMobile && hasLeftPanels && !leftPanelClosedState && (
+          {/* Left Panel Overlay - Works on both mobile and desktop */}
+          {hasLeftPanels && !leftPanelClosedState && (
             <>
               <div
-                className="fixed inset-0 z-40 bg-black bg-opacity-50 md:hidden"
+                className="fixed inset-0 z-40 bg-black bg-opacity-50"
                 onClick={() => handleOverlayClick('left')}
               />
               <div
-                className="fixed left-0 top-[48px] z-50 h-[calc(100vh-48px)] w-[280px] max-w-[85vw] bg-black md:hidden"
+                className={classNames(
+                  "fixed left-0 z-50 bg-black",
+                  isMobile 
+                    ? "top-[48px] h-[calc(100vh-48px)] w-[280px] max-w-[85vw]" 
+                    : "top-[52px] h-[calc(100vh-52px)] w-[280px]"
+                )}
                 onClick={(e) => e.stopPropagation()}
               >
                 <SidePanelWithServices
@@ -245,87 +250,34 @@ function ViewerLayout({
             </>
           )}
 
-          {/* Desktop: Resizable Panels */}
-          {!isMobile && (
-            <ResizablePanelGroup {...resizablePanelGroupProps}>
-              {/* LEFT SIDEPANELS */}
-              {hasLeftPanels ? (
-                <>
-                  <ResizablePanel {...resizableLeftPanelProps}>
-                    <SidePanelWithServices
-                      side="left"
-                      isExpanded={!leftPanelClosedState}
-                      servicesManager={servicesManager}
-                      {...leftPanelProps}
-                    />
-                  </ResizablePanel>
-                  <ResizableHandle
-                    onDragging={onHandleDragging}
-                    disabled={!leftPanelResizable}
-                    className={resizableHandleClassName}
-                  />
-                </>
-              ) : null}
-              {/* TOOLBAR + GRID */}
-              <ResizablePanel {...resizableViewportGridPanelProps}>
-                <div className="flex h-full flex-1 flex-col">
-                  <div
-                    className="relative flex h-full flex-1 items-center justify-center overflow-hidden bg-black"
-                    onMouseEnter={handleMouseEnter}
-                  >
-                    <ViewportGridComp
-                      servicesManager={servicesManager}
-                      viewportComponents={viewportComponents}
-                      commandsManager={commandsManager}
-                    />
-                  </div>
-                </div>
-              </ResizablePanel>
-              {hasRightPanels ? (
-                <>
-                  <ResizableHandle
-                    onDragging={onHandleDragging}
-                    disabled={!rightPanelResizable}
-                    className={resizableHandleClassName}
-                  />
-                  <ResizablePanel {...resizableRightPanelProps}>
-                    <SidePanelWithServices
-                      side="right"
-                      isExpanded={!rightPanelClosedState}
-                      servicesManager={servicesManager}
-                      {...rightPanelProps}
-                    />
-                  </ResizablePanel>
-                </>
-              ) : null}
-            </ResizablePanelGroup>
-          )}
-
-          {/* Mobile: Viewport Grid (Full Width) */}
-          {isMobile && (
-            <div className="flex h-full w-full flex-1 flex-col">
-              <div
-                className="relative flex h-full flex-1 items-center justify-center overflow-hidden bg-black"
-                onMouseEnter={handleMouseEnter}
-              >
-                <ViewportGridComp
-                  servicesManager={servicesManager}
-                  viewportComponents={viewportComponents}
-                  commandsManager={commandsManager}
-                />
-              </div>
+          {/* Viewport Grid (Full Width) - Always visible on both mobile and desktop */}
+          <div className="flex h-full w-full flex-1 flex-col">
+            <div
+              className="relative flex h-full flex-1 items-center justify-center overflow-hidden bg-black"
+              onMouseEnter={handleMouseEnter}
+            >
+              <ViewportGridComp
+                servicesManager={servicesManager}
+                viewportComponents={viewportComponents}
+                commandsManager={commandsManager}
+              />
             </div>
-          )}
+          </div>
 
-          {/* Mobile: Right Panel Overlay */}
-          {isMobile && hasRightPanels && !rightPanelClosedState && (
+          {/* Right Panel Overlay - Works on both mobile and desktop */}
+          {hasRightPanels && !rightPanelClosedState && (
             <>
               <div
-                className="fixed inset-0 z-40 bg-black bg-opacity-50 md:hidden"
+                className="fixed inset-0 z-40 bg-black bg-opacity-50"
                 onClick={() => handleOverlayClick('right')}
               />
               <div
-                className="fixed right-0 top-[48px] z-50 h-[calc(100vh-48px)] w-[280px] max-w-[85vw] bg-black md:hidden"
+                className={classNames(
+                  "fixed right-0 z-50 bg-black",
+                  isMobile 
+                    ? "top-[48px] h-[calc(100vh-48px)] w-[280px] max-w-[85vw]" 
+                    : "top-[52px] h-[calc(100vh-52px)] w-[280px]"
+                )}
                 onClick={(e) => e.stopPropagation()}
               >
                 <SidePanelWithServices
@@ -347,7 +299,7 @@ function ViewerLayout({
         </React.Fragment>
       </div>
       <Onboarding tours={customizationService.getCustomization('ohif.tours')} />
-      <InvestigationalUseDialog dialogConfiguration={appConfig?.investigationalUseDialog} />
+      {/* <InvestigationalUseDialog dialogConfiguration={appConfig?.investigationalUseDialog} /> */}
     </div>
   );
 }

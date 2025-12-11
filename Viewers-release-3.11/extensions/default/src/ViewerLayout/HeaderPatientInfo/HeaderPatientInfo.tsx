@@ -60,7 +60,7 @@ function HeaderPatientInfo({ servicesManager, appConfig }: withAppTypes) {
       if (isMobile) {
         setIsPopoverOpen(!isPopoverOpen);
       } else {
-        setExpanded(!expanded);
+      setExpanded(!expanded);
       }
     }
   };

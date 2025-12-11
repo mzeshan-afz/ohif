@@ -31,7 +31,7 @@ const CinePlayer: React.FC<CinePlayerProps> = ({
   minFrameRate = 1,
   maxFrameRate = 90,
   stepFrameRate = 1,
-  frameRate: defaultFrameRate = 24,
+  frameRate: defaultFrameRate = 1,
   onFrameRateChange = () => {},
   onPlayPauseChange = () => {},
   onClose = () => {},
