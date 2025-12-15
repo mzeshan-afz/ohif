@@ -2,92 +2,28 @@ import { hpMN, hpMN8 } from './hangingprotocols/hpMNGrid';
 import hpMNCompare from './hangingprotocols/hpCompare';
 import hpMammography from './hangingprotocols/hpMammo';
 import hpScale from './hangingprotocols/hpScale';
+// ... existing imports at top ...
 
-const defaultProtocol = {
-  id: 'default',
-  locked: true,
-  // Don't store this hanging protocol as it applies to the currently active
-  // display set by default
-  // cacheId: null,
-  name: 'Default',
-  createdDate: '2021-02-23T19:22:08.894Z',
-  modifiedDate: '2023-04-01',
-  availableTo: {},
-  editableBy: {},
-  protocolMatchingRules: [],
-  toolGroupIds: ['default'],
-  // -1 would be used to indicate active only, whereas other values are
-  // the number of required priors referenced - so 0 means active with
-  // 0 or more priors.
-  numberOfPriorsReferenced: 0,
-  // Default viewport is used to define the viewport when
-  // additional viewports are added using the layout tool
-  defaultViewport: {
-    viewportOptions: {
-      viewportType: 'stack',
-      toolGroupId: 'default',
-      allowUnmatchedView: true,
-      syncGroups: [
-        {
-          type: 'hydrateseg',
-          id: 'sameFORId',
-          source: true,
-          target: true,
-          options: {
-            matchingRules: ['sameFOR'],
-          },
-        },
-      ],
-    },
-    displaySets: [
-      {
-        id: 'defaultDisplaySetId',
-        matchedDisplaySetsIndex: -1,
-      },
-    ],
-  },
-  displaySetSelectors: {
-    defaultDisplaySetId: {
-      // Matches displaysets, NOT series
-      seriesMatchingRules: [
-        // Try to match series with images by default, to prevent weird display
-        // on SEG/SR containing studies
-        {
-          weight: 10,
-          attribute: 'numImageFrames',
-          constraint: {
-            greaterThan: { value: 0 },
-          },
-        },
-        // This display set will select the specified items by preference
-        // It has no affect if nothing is specified in the URL.
-        {
-          attribute: 'isDisplaySetFromUrl',
-          weight: 20,
-          constraint: {
-            equals: true,
-          },
-        },
-      ],
-    },
-  },
- // ... existing code ...
-stages: [
-  {
-    name: 'default',
-    viewportStructure: {
-      layoutType: 'grid',
-      properties: {
-        rows: 2,
-        columns: 2,
-      },
-    },
-    viewports: [
-      {
-        viewportOptions: {
-          viewportType: 'stack',
-          viewportId: 'default',
-          toolGroupId: 'default',
+// Create a responsive default protocol generator
+const defaultProtocolGenerator = ({ servicesManager }) => {
+  // Check if screen is "large" (e.g., >= 1024px width)
+  const isLargeScreen = window.innerWidth >= 1024;
+  
+  const rows = isLargeScreen ? 2 : 1;
+  const columns = isLargeScreen ? 2 : 1;
+  
+  // Build viewports array based on layout
+  const viewports = [];
+  const totalViewports = rows * columns;
+  
+  for (let i = 0; i < totalViewports; i++) {
+    viewports.push({
+      viewportOptions: {
+        viewportType: 'stack',
+        viewportId: i === 0 ? 'default' : `viewport-${i + 1}`,
+        toolGroupId: 'default',
+        allowUnmatchedView: i > 0,
+        ...(i === 0 && {
           initialImageOptions: {
             custom: 'sopInstanceLocation',
           },
@@ -99,20 +35,45 @@ stages: [
               target: true,
             },
           ],
-        },
-        displaySets: [
-          {
-            id: 'defaultDisplaySetId',
-          },
-        ],
+        }),
       },
-      // Add 3 more viewport definitions for the 2x2 layout
-      {
+      displaySets: [
+        {
+          id: 'defaultDisplaySetId',
+          ...(i > 0 && { matchedDisplaySetsIndex: -1 }),
+        },
+      ],
+    });
+  }
+
+  return {
+    protocol: {
+      id: 'default',
+      locked: true,
+      name: 'Default',
+      createdDate: '2021-02-23T19:22:08.894Z',
+      modifiedDate: '2023-04-01',
+      availableTo: {},
+      editableBy: {},
+      protocolMatchingRules: [],
+      toolGroupIds: ['default'],
+      numberOfPriorsReferenced: 0,
+      defaultViewport: {
         viewportOptions: {
           viewportType: 'stack',
-          viewportId: 'viewport-2',
           toolGroupId: 'default',
           allowUnmatchedView: true,
+          syncGroups: [
+            {
+              type: 'hydrateseg',
+              id: 'sameFORId',
+              source: true,
+              target: true,
+              options: {
+                matchingRules: ['sameFOR'],
+              },
+            },
+          ],
         },
         displaySets: [
           {
@@ -121,48 +82,51 @@ stages: [
           },
         ],
       },
-      {
-        viewportOptions: {
-          viewportType: 'stack',
-          viewportId: 'viewport-3',
-          toolGroupId: 'default',
-          allowUnmatchedView: true,
+      displaySetSelectors: {
+        defaultDisplaySetId: {
+          seriesMatchingRules: [
+            {
+              weight: 10,
+              attribute: 'numImageFrames',
+              constraint: {
+                greaterThan: { value: 0 },
+              },
+            },
+            {
+              attribute: 'isDisplaySetFromUrl',
+              weight: 20,
+              constraint: {
+                equals: true,
+              },
+            },
+          ],
         },
-        displaySets: [
-          {
-            id: 'defaultDisplaySetId',
-            matchedDisplaySetsIndex: -1,
-          },
-        ],
       },
-      {
-        viewportOptions: {
-          viewportType: 'stack',
-          viewportId: 'viewport-4',
-          toolGroupId: 'default',
-          allowUnmatchedView: true,
+      stages: [
+        {
+          name: 'default',
+          viewportStructure: {
+            layoutType: 'grid',
+            properties: {
+              rows,
+              columns,
+            },
+          },
+          viewports,
+          createdDate: '2021-02-23T18:32:42.850Z',
         },
-        displaySets: [
-          {
-            id: 'defaultDisplaySetId',
-            matchedDisplaySetsIndex: -1,
-          },
-        ],
-      },
-    ],
-    createdDate: '2021-02-23T18:32:42.850Z',
-  },
-],
-// ... existing code ...
+      ],
+    },
+  };
 };
 
 function getHangingProtocolModule() {
   return [
     {
-      name: defaultProtocol.id,
-      protocol: defaultProtocol,
+      name: 'default',
+      protocol: defaultProtocolGenerator, // Use the generator instead of static protocol
     },
-    // Create a MxN comparison hanging protocol available by default
+    // ... rest of your protocols (hpMNCompare, hpMammography, etc.) ...
     {
       name: hpMNCompare.id,
       protocol: hpMNCompare,
@@ -175,7 +139,6 @@ function getHangingProtocolModule() {
       name: hpScale.id,
       protocol: hpScale,
     },
-    // Create a MxN hanging protocol available by default
     {
       name: hpMN.id,
       protocol: hpMN,
@@ -188,3 +151,4 @@ function getHangingProtocolModule() {
 }
 
 export default getHangingProtocolModule;
+

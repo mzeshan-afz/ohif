@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
 import classNames from 'classnames';
 
@@ -14,6 +14,9 @@ const resizableHandleClassName = 'mt-[1px] bg-black';
 
 // Mobile breakpoint (matches Tailwind's md breakpoint)
 const MOBILE_BREAKPOINT = 768;
+
+// Large screen breakpoint for 2x2 layout (matches Tailwind's lg breakpoint)
+const LARGE_SCREEN_BREAKPOINT = 1024;
 
 // Hook to detect mobile screen size
 const useIsMobile = () => {
@@ -36,6 +39,42 @@ const useIsMobile = () => {
   return isMobile;
 };
 
+// Hook for responsive viewport layout (1x1 on small/medium, 2x2 on large screens)
+const useResponsiveLayout = (commandsManager) => {
+  const isLargeScreenRef = useRef(
+    typeof window !== 'undefined' ? window.innerWidth >= LARGE_SCREEN_BREAKPOINT : false
+  );
+
+  useEffect(() => {
+    const handleResize = () => {
+      const isNowLargeScreen = window.innerWidth >= LARGE_SCREEN_BREAKPOINT;
+      
+      // Only trigger layout change if we crossed the breakpoint
+      if (isNowLargeScreen !== isLargeScreenRef.current) {
+        isLargeScreenRef.current = isNowLargeScreen;
+        
+        // Change layout based on screen size
+        if (isNowLargeScreen) {
+          // Large screen: 2x2 layout
+          commandsManager.run({
+            commandName: 'setViewportGridLayout',
+            commandOptions: { numRows: 2, numCols: 2 },
+          });
+        } else {
+          // Small/medium screen: 1x1 layout
+          commandsManager.run({
+            commandName: 'setViewportGridLayout',
+            commandOptions: { numRows: 1, numCols: 1 },
+          });
+        }
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [commandsManager]);
+};
+
 function ViewerLayout({
   // From Extension Module Params
   extensionManager,
@@ -56,6 +95,9 @@ function ViewerLayout({
 }: withAppTypes): React.FunctionComponent {
   const [appConfig] = useAppConfig();
   const isMobile = useIsMobile();
+  
+  // Enable dynamic responsive layout (1x1 on small/medium, 2x2 on large screens)
+  useResponsiveLayout(commandsManager);
 
   const { panelService, hangingProtocolService, customizationService } = servicesManager.services;
   const [showLoadingIndicator, setShowLoadingIndicator] = useState(appConfig.showLoadingIndicator);
