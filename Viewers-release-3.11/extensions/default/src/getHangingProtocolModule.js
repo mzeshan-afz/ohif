@@ -71,54 +71,89 @@ const defaultProtocol = {
       ],
     },
   },
-  stages: [
-    {
-      name: 'default',
-      viewportStructure: {
-        layoutType: 'grid',
-        properties: {
-          rows: 1,
-          columns: 1,
-        },
+ // ... existing code ...
+stages: [
+  {
+    name: 'default',
+    viewportStructure: {
+      layoutType: 'grid',
+      properties: {
+        rows: 2,
+        columns: 2,
       },
-      viewports: [
-        {
-          viewportOptions: {
-            viewportType: 'stack',
-            viewportId: 'default',
-            toolGroupId: 'default',
-            // This will specify the initial image options index if it matches in the URL
-            // and will otherwise not specify anything.
-            initialImageOptions: {
-              custom: 'sopInstanceLocation',
-            },
-            // Other options for initialImageOptions, which can be included in the default
-            // custom attribute, or can be provided directly.
-            //   index: 180,
-            //   preset: 'middle', // 'first', 'last', 'middle'
-            // },
-            syncGroups: [
-              {
-                type: 'hydrateseg',
-                id: 'sameFORId',
-                source: true,
-                target: true,
-                // options: {
-                //   matchingRules: ['sameFOR'],
-                // },
-              },
-            ],
+    },
+    viewports: [
+      {
+        viewportOptions: {
+          viewportType: 'stack',
+          viewportId: 'default',
+          toolGroupId: 'default',
+          initialImageOptions: {
+            custom: 'sopInstanceLocation',
           },
-          displaySets: [
+          syncGroups: [
             {
-              id: 'defaultDisplaySetId',
+              type: 'hydrateseg',
+              id: 'sameFORId',
+              source: true,
+              target: true,
             },
           ],
         },
-      ],
-      createdDate: '2021-02-23T18:32:42.850Z',
-    },
-  ],
+        displaySets: [
+          {
+            id: 'defaultDisplaySetId',
+          },
+        ],
+      },
+      // Add 3 more viewport definitions for the 2x2 layout
+      {
+        viewportOptions: {
+          viewportType: 'stack',
+          viewportId: 'viewport-2',
+          toolGroupId: 'default',
+          allowUnmatchedView: true,
+        },
+        displaySets: [
+          {
+            id: 'defaultDisplaySetId',
+            matchedDisplaySetsIndex: -1,
+          },
+        ],
+      },
+      {
+        viewportOptions: {
+          viewportType: 'stack',
+          viewportId: 'viewport-3',
+          toolGroupId: 'default',
+          allowUnmatchedView: true,
+        },
+        displaySets: [
+          {
+            id: 'defaultDisplaySetId',
+            matchedDisplaySetsIndex: -1,
+          },
+        ],
+      },
+      {
+        viewportOptions: {
+          viewportType: 'stack',
+          viewportId: 'viewport-4',
+          toolGroupId: 'default',
+          allowUnmatchedView: true,
+        },
+        displaySets: [
+          {
+            id: 'defaultDisplaySetId',
+            matchedDisplaySetsIndex: -1,
+          },
+        ],
+      },
+    ],
+    createdDate: '2021-02-23T18:32:42.850Z',
+  },
+],
+// ... existing code ...
 };
 
 function getHangingProtocolModule() {
