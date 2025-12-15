@@ -39,39 +39,43 @@ const useIsMobile = () => {
   return isMobile;
 };
 
-// Hook for responsive viewport layout (1x1 on small/medium, 2x2 on large screens)
-const useResponsiveLayout = (commandsManager) => {
-  const isLargeScreenRef = useRef(
-    typeof window !== 'undefined' ? window.innerWidth >= LARGE_SCREEN_BREAKPOINT : false
-  );
-
+// Hook to listen for layout change events from parent window (for iframe embedding)
+// Parent can send: { type: 'OHIF_LAYOUT_CHANGE', layout: 'expanded' } for 2x2
+// Parent can send: { type: 'OHIF_LAYOUT_CHANGE', layout: 'compact' } for 1x1
+const useParentMessageLayout = (commandsManager) => {
   useEffect(() => {
-    const handleResize = () => {
-      const isNowLargeScreen = window.innerWidth >= LARGE_SCREEN_BREAKPOINT;
-      
-      // Only trigger layout change if we crossed the breakpoint
-      if (isNowLargeScreen !== isLargeScreenRef.current) {
-        isLargeScreenRef.current = isNowLargeScreen;
-        
-        // Change layout based on screen size
-        if (isNowLargeScreen) {
-          // Large screen: 2x2 layout
-          commandsManager.run({
-            commandName: 'setViewportGridLayout',
-            commandOptions: { numRows: 2, numCols: 2 },
-          });
-        } else {
-          // Small/medium screen: 1x1 layout
-          commandsManager.run({
-            commandName: 'setViewportGridLayout',
-            commandOptions: { numRows: 1, numCols: 1 },
-          });
-        }
+    const handleMessage = (event) => {
+
+      console.log('event', event);
+      // Validate the message
+      if (!event.data || typeof event.data !== 'object') {
+        return;
+      }
+
+      const { type, layout } = event.data;
+
+      // Only handle layout change messages
+      if (type !== 'OHIF_LAYOUT_CHANGE') {
+        return;
+      }
+
+      if (layout === 'expanded') {
+        // Expand to 2x2 layout
+        commandsManager.run({
+          commandName: 'setViewportGridLayout',
+          commandOptions: { numRows: 2, numCols: 2 },
+        });
+      } else if (layout === 'compact') {
+        // Compact to 1x1 layout
+        commandsManager.run({
+          commandName: 'setViewportGridLayout',
+          commandOptions: { numRows: 1, numCols: 1 },
+        });
       }
     };
 
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
   }, [commandsManager]);
 };
 
@@ -96,8 +100,8 @@ function ViewerLayout({
   const [appConfig] = useAppConfig();
   const isMobile = useIsMobile();
   
-  // Enable dynamic responsive layout (1x1 on small/medium, 2x2 on large screens)
-  useResponsiveLayout(commandsManager);
+  // Enable layout control via postMessage from parent window (for iframe embedding)
+  useParentMessageLayout(commandsManager);
 
   const { panelService, hangingProtocolService, customizationService } = servicesManager.services;
   const [showLoadingIndicator, setShowLoadingIndicator] = useState(appConfig.showLoadingIndicator);
