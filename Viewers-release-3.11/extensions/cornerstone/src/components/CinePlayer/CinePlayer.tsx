@@ -13,7 +13,7 @@ function WrappedCinePlayer({
 }>) {
   const { customizationService, displaySetService, viewportGridService } = servicesManager.services;
   const [{ isCineEnabled, cines }, cineService] = useCine();
-  const [newStackFrameRate, setNewStackFrameRate] = useState(24);
+  const [newStackFrameRate, setNewStackFrameRate] = useState(16);
   const [dynamicInfo, setDynamicInfo] = useState(null);
   const [appConfig] = useAppConfig();
   const isMountedRef = useRef(null);
@@ -24,12 +24,21 @@ function WrappedCinePlayer({
       return;
     }
 
-    const { isPlaying = false, frameRate = 24 } = cines[viewportId];
-    const validFrameRate = Math.max(frameRate, 24);
+    const { isPlaying = false, frameRate = 16 } = cines[viewportId];
+    const validFrameRate = Math.max(frameRate, 1);
 
-    return isPlaying
-      ? cineService.playClip(enabledVPElement, { framesPerSecond: validFrameRate, viewportId })
-      : cineService.stopClip(enabledVPElement);
+    if (isPlaying) {
+      // Stop any existing clip first to ensure new frameRate is applied
+      cineService.stopClip(enabledVPElement, { viewportId });
+      // Start playback with loop enabled and current frameRate
+      cineService.playClip(enabledVPElement, {
+        framesPerSecond: validFrameRate,
+        viewportId,
+        loop: true, // Enable looping
+      });
+    } else {
+      cineService.stopClip(enabledVPElement, { viewportId });
+    }
   };
 
   const newDisplaySetHandler = useCallback(() => {
@@ -39,7 +48,7 @@ function WrappedCinePlayer({
 
     const { viewports } = viewportGridService.getState();
     const { displaySetInstanceUIDs } = viewports.get(viewportId);
-    let frameRate = 24; // Always default to 1, ignore DICOM FrameRate tag
+    let frameRate = 16; // Always default to 1, ignore DICOM FrameRate tag
     let isPlaying = cines[viewportId]?.isPlaying || false;
 
     // Auto-play on new display set if not already playing
@@ -64,7 +73,7 @@ function WrappedCinePlayer({
         const { dynamicVolumeInfo } = displaySet;
         const numDimensionGroups = dynamicVolumeInfo.timePoints.length;
         const label = dynamicVolumeInfo.splittingTag;
-        const dimensionGroupNumber = dynamicVolumeInfo.dimensionGroupNumber || 24;
+        const dimensionGroupNumber = dynamicVolumeInfo.dimensionGroupNumber || 16;
         setDynamicInfo({
           volumeId: displaySet.displaySetInstanceUID,
           dimensionGroupNumber,
@@ -148,7 +157,7 @@ function WrappedCinePlayer({
   }, [cines, viewportId, cineService, enabledVPElement, cineHandler]);
 
   // Always render the cine player - remove the conditional return
-  const cine = cines?.[viewportId] || { isPlaying: false, frameRate: 24 };
+  const cine = cines?.[viewportId] || { isPlaying: false, frameRate: 16 };
   const isPlaying = cine?.isPlaying || false;
 
   return (
@@ -159,6 +168,7 @@ function WrappedCinePlayer({
       isPlaying={isPlaying}
       dynamicInfo={dynamicInfo}
       customizationService={customizationService}
+      enabledVPElement={enabledVPElement}
     />
   );
 }
@@ -170,6 +180,7 @@ function RenderCinePlayer({
   isPlaying,
   dynamicInfo: dynamicInfoProp,
   customizationService,
+  enabledVPElement,
 }) {
   const CinePlayerComponent = customizationService.getCustomization('cinePlayer');
 
@@ -244,12 +255,25 @@ function RenderCinePlayer({
           isPlaying,
         });
       }}
-      onFrameRateChange={frameRate =>
+      onFrameRateChange={frameRate => {
+        const wasPlaying = isPlaying;
+        // Update frameRate in state
         cineService.setCine({
           id: viewportId,
           frameRate,
-        })
-      }
+        });
+        // If playing, restart with new frameRate
+        if (wasPlaying && enabledVPElement) {
+          setTimeout(() => {
+            cineService.stopClip(enabledVPElement, { viewportId });
+            cineService.playClip(enabledVPElement, {
+              framesPerSecond: Math.max(frameRate, 1),
+              viewportId,
+              loop: true,
+            });
+          }, 0);
+        }
+      }}
       dynamicInfo={dynamicInfo}
       updateDynamicInfo={updateDynamicInfo}
     />

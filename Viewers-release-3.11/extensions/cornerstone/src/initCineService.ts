@@ -53,7 +53,12 @@ function initCineService(servicesManager: AppTypes.ServicesManager) {
   };
 
   const playClip = (element, playClipOptions) => {
-    return utilities.cine.playClip(element, playClipOptions);
+    // Ensure loop is always enabled for continuous playback
+    const options = {
+      loop: true,
+      ...playClipOptions
+    };
+    return utilities.cine.playClip(element, options);
   };
 
   const stopClip = (element, stopClipOptions) => {
