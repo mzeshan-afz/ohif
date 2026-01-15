@@ -71,7 +71,7 @@ const CinePlayer: React.FC<CinePlayerProps> = ({
 
   return (
     <div
-      className={`pointer-events-none absolute top-10 left-1/2 z-50 -translate-x-1/2 ${className}`}
+      className={`pointer-events-none absolute top-2 left-1/2 z-50 -translate-x-1/2 ${className}`}
     >
       <div
         className={
@@ -154,15 +154,6 @@ const CinePlayer: React.FC<CinePlayerProps> = ({
             </PopoverContent>
           </Popover>
         </div>
-
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onClose}
-          data-cy={'cine-player-close'}
-        >
-          <Icons.Close />
-        </Button>
       </div>
 
       {isDynamic && dynamicInfo && (

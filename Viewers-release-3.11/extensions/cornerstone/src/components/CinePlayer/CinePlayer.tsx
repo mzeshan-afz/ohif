@@ -17,14 +17,15 @@ function WrappedCinePlayer({
   const [dynamicInfo, setDynamicInfo] = useState(null);
   const [appConfig] = useAppConfig();
   const isMountedRef = useRef(null);
+  const hasAutoPlayedRef = useRef(false); // Track if auto-play has been triggered
 
   const cineHandler = () => {
     if (!cines?.[viewportId] || !enabledVPElement) {
       return;
     }
 
-    const { isPlaying = false, frameRate = 1 } = cines[viewportId];
-    const validFrameRate = Math.max(frameRate, 1);
+    const { isPlaying = false, frameRate = 24 } = cines[viewportId];
+    const validFrameRate = Math.max(frameRate, 24);
 
     return isPlaying
       ? cineService.playClip(enabledVPElement, { framesPerSecond: validFrameRate, viewportId })
@@ -38,8 +39,15 @@ function WrappedCinePlayer({
 
     const { viewports } = viewportGridService.getState();
     const { displaySetInstanceUIDs } = viewports.get(viewportId);
-    let frameRate = 1; // Always default to 1, ignore DICOM FrameRate tag
+    let frameRate = 24; // Always default to 1, ignore DICOM FrameRate tag
     let isPlaying = cines[viewportId]?.isPlaying || false;
+
+    // Auto-play on new display set if not already playing
+    if (!hasAutoPlayedRef.current) {
+      isPlaying = true; // Force playing on load
+      hasAutoPlayedRef.current = true;
+    }
+
     displaySetInstanceUIDs.forEach(displaySetInstanceUID => {
       const displaySet = displaySetService.getDisplaySetByUID(displaySetInstanceUID);
 
@@ -56,7 +64,7 @@ function WrappedCinePlayer({
         const { dynamicVolumeInfo } = displaySet;
         const numDimensionGroups = dynamicVolumeInfo.timePoints.length;
         const label = dynamicVolumeInfo.splittingTag;
-        const dimensionGroupNumber = dynamicVolumeInfo.dimensionGroupNumber || 1;
+        const dimensionGroupNumber = dynamicVolumeInfo.dimensionGroupNumber || 24;
         setDynamicInfo({
           volumeId: displaySet.displaySetInstanceUID,
           dimensionGroupNumber,
@@ -77,11 +85,16 @@ function WrappedCinePlayer({
 
   useEffect(() => {
     isMountedRef.current = true;
+    hasAutoPlayedRef.current = false; // Reset on mount
+
+    // Enable cine player on mount
+    cineService.setIsCineEnabled(true);
 
     newDisplaySetHandler();
 
     return () => {
       isMountedRef.current = false;
+      hasAutoPlayedRef.current = false;
     };
   }, [isCineEnabled, newDisplaySetHandler]);
 
@@ -134,11 +147,8 @@ function WrappedCinePlayer({
     };
   }, [cines, viewportId, cineService, enabledVPElement, cineHandler]);
 
-  if (!isCineEnabled) {
-    return null;
-  }
-
-  const cine = cines[viewportId];
+  // Always render the cine player - remove the conditional return
+  const cine = cines?.[viewportId] || { isPlaying: false, frameRate: 24 };
   const isPlaying = cine?.isPlaying || false;
 
   return (
@@ -219,13 +229,14 @@ function RenderCinePlayer({
       frameRate={newStackFrameRate}
       isPlaying={isPlaying}
       onClose={() => {
-        // also stop the clip
+        // Stop the clip but keep the player visible
         cineService.setCine({
           id: viewportId,
           isPlaying: false,
         });
-        cineService.setIsCineEnabled(false);
-        cineService.setViewportCineClosed(viewportId);
+        // Don't disable cine - keep player visible
+        // cineService.setIsCineEnabled(false);
+        // cineService.setViewportCineClosed(viewportId);
       }}
       onPlayPauseChange={isPlaying => {
         cineService.setCine({
