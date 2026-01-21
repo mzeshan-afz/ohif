@@ -306,17 +306,17 @@ const OHIFCornerstoneViewport = React.memo(
 
     const Notification = customizationService.getCustomization('ui.notificationComponent');
 
-    // Handler for image navigation buttons
-    const handleImageNavigation = useCallback(
+    // Handler for series navigation buttons (mobile only)
+    const handleSeriesNavigation = useCallback(
       (direction: number) => {
-        if (direction === -1) {
-          commandsManager.runCommand('previousImage', { viewportId });
-        } else {
-          commandsManager.runCommand('nextImage', { viewportId });
-        }
+        commandsManager.runCommand('updateViewportDisplaySet', { direction });
       },
-      [commandsManager, viewportId]
+      [commandsManager]
     );
+
+    // Check if only one viewport is displayed (for showing series navigation buttons)
+    const { viewports } = servicesManager.services.viewportGridService.getState();
+    const isSingleViewport = viewports.size === 1;
 
     return (
       <React.Fragment>
@@ -346,46 +346,28 @@ const OHIFCornerstoneViewport = React.memo(
             viewportId={viewportId}
             servicesManager={servicesManager}
           />
-       <>
-  {/* Previous Image Button - Left Side */}
-{/* Navigation Buttons - Responsive Layout */}
-<div className="absolute bottom-14 left-1/2 -translate-x-1/2 z-10 flex gap-2 md:hidden">
-  {/* Previous Image Button - Mobile: Left */}
-  <button
-    onClick={() => handleImageNavigation(-1)}
-    className="cursor-pointer flex items-center justify-center shrink-0 text-highlight active:text-foreground hover:bg-primary/30 rounded p-2"
-    title="Previous Image"
-  >
-    <Icons.ArrowLeftBold className="w-8 h-8" />
-  </button>
-  
-  {/* Next Image Button - Mobile: Right */}
-  <button
-    onClick={() => handleImageNavigation(1)}
-    className="cursor-pointer flex items-center justify-center shrink-0 text-highlight active:text-foreground hover:bg-primary/30 rounded p-2"
-    title="Next Image"
-  >
-    <Icons.ArrowRightBold className="w-8 h-8" />
-  </button>
-</div>
+          {/* Series Navigation Buttons - Single Viewport Only (visible on all screen sizes) */}
+          {isSingleViewport && (
+            <div className="absolute bottom-14 lg:bottom-[50%] lg:translate-y-1/2 left-1/2 -translate-x-1/2 z-10 lg:w-full  flex gap-2 lg:justify-between lg:px-10 ">
+              {/* Previous Series Button */}
+              <button
+                onClick={() => handleSeriesNavigation(-1)}
+                className="cursor-pointer flex items-center justify-center shrink-0 text-highlight active:text-foreground hover:bg-primary/30 rounded p-2"
+                title="Previous Series"
+              >
+                <Icons.ArrowLeftBold className="w-8 h-8 lg:w-10 lg:h-10" />
+              </button>
 
-{/* Desktop: Separate buttons on left and right */}
-<button
-  onClick={() => handleImageNavigation(-1)}
-  className="hidden md:flex absolute left-6 top-1/2 -translate-y-1/2 z-10 cursor-pointer items-center justify-center shrink-0 text-highlight active:text-foreground hover:bg-primary/30 rounded p-2"
-  title="Previous Image (Arrow Up)"
->
-  <Icons.ArrowLeftBold className="w-10 h-10" />
-</button>
-
-<button
-  onClick={() => handleImageNavigation(1)}
-  className="hidden md:flex absolute right-6 top-1/2 -translate-y-1/2 z-10 cursor-pointer items-center justify-center shrink-0 text-highlight active:text-foreground hover:bg-primary/30 rounded p-2"
-  title="Next Image (Arrow Down)"
->
-  <Icons.ArrowRightBold className="w-10 h-10" />
-</button>
-</>
+              {/* Next Series Button */}
+              <button
+                onClick={() => handleSeriesNavigation(1)}
+                className="cursor-pointer flex items-center justify-center shrink-0 text-highlight active:text-foreground hover:bg-primary/30 rounded p-2"
+                title="Next Series"
+              >
+                <Icons.ArrowRightBold className="w-8 h-8 lg:w-10 lg:h-10" />
+              </button>
+            </div>
+          )}
           <ActiveViewportBehavior
             viewportId={viewportId}
             servicesManager={servicesManager}

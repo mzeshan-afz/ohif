@@ -113,5 +113,8 @@
     "workerpool",
     "Colorbar",
     "Colorbars"
-  ]
+  ],
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "vscode.typescript-language-features"
+  }
 }
