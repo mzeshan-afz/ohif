@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useCallback, useState } from 'react';
 import * as cs3DTools from '@cornerstonejs/tools';
-import { Enums, eventTarget, getEnabledElement } from '@cornerstonejs/core';
+import { Enums, eventTarget, getEnabledElement, utilities as csUtils } from '@cornerstonejs/core';
 import { MeasurementService, useViewportRef, useSystem } from '@ohif/core';
-import { useViewportDialog, Icons } from '@ohif/ui-next';import type { Types as csTypes } from '@cornerstonejs/core';
+import { useViewportDialog, Icons, useCine } from '@ohif/ui-next';
+import { getViewportEnabledElement } from '../utils/getViewportEnabledElement'; import type { Types as csTypes } from '@cornerstonejs/core';
 
 import { setEnabledElement } from '../state';
 
@@ -314,6 +315,62 @@ const OHIFCornerstoneViewport = React.memo(
       [commandsManager]
     );
 
+    // Handler for image navigation (previous/next image in series)
+    const handleImageNavigation = useCallback(
+      (direction: number) => {
+        // Get the enabled element for this specific viewport
+        const enabledElement = getViewportEnabledElement(viewportId);
+
+        if (!enabledElement) {
+          console.warn('No enabled element found for viewport:', viewportId);
+          return;
+        }
+
+        const { viewport } = enabledElement;
+
+        if (!viewport) {
+          console.warn('No viewport found for enabled element');
+          return;
+        }
+
+        try {
+          // Get current image index and total number of slices
+          const currentImageIndex = viewport.getCurrentImageIdIndex();
+          const numberOfSlices = viewport.getNumberOfSlices();
+
+          if (numberOfSlices === 0) {
+            console.warn('No slices available in viewport');
+            return;
+          }
+
+          // Calculate new image index
+          let newImageIndex = currentImageIndex + direction;
+
+          // Handle bounds (wrap around or clamp)
+          if (newImageIndex < 0) {
+            newImageIndex = numberOfSlices - 1;
+          } else if (newImageIndex >= numberOfSlices) {
+            newImageIndex = 0;
+          }
+
+          // Use jumpToSlice with debounceLoading to prevent loading indicator issues
+          csUtils.jumpToSlice(viewport.element, {
+            imageIndex: newImageIndex,
+            debounceLoading: true,
+          });
+        } catch (error) {
+          console.warn('Error navigating image:', error);
+          // Fallback to scroll if jumpToSlice fails
+          csUtils.scroll(viewport, { delta: direction });
+        }
+      },
+      [viewportId]
+    );
+
+    // Get cine state to check if video is playing
+    const [{ cines }] = useCine();
+    const isPlaying = cines?.[viewportId]?.isPlaying || false;
+
     // Check if only one viewport is displayed (for showing series navigation buttons)
     const { viewports } = servicesManager.services.viewportGridService.getState();
     const isSingleViewport = viewports.size === 1;
@@ -348,7 +405,7 @@ const OHIFCornerstoneViewport = React.memo(
           />
           {/* Series Navigation Buttons - Single Viewport Only (visible on all screen sizes) */}
           {isSingleViewport && (
-            <div className="absolute bottom-14 lg:bottom-[50%] lg:translate-y-1/2 left-1/2 -translate-x-1/2 z-10 lg:w-full  flex gap-2 lg:justify-between lg:px-10 ">
+            <div className="absolute bottom-14  left-1/2 -translate-x-1/2 z-10   flex gap-2  ">
               {/* Previous Series Button */}
               <button
                 onClick={() => handleSeriesNavigation(-1)}
@@ -367,6 +424,28 @@ const OHIFCornerstoneViewport = React.memo(
                 <Icons.ArrowRightBold className="w-8 h-8 lg:w-10 lg:h-10" />
               </button>
             </div>
+          )}
+          {/* Image Navigation Buttons - Left and Right Center (visible only when video is NOT playing) */}
+          {!isPlaying && (
+            <>
+              {/* Previous Image Button - Left Center */}
+              <button
+                onClick={() => handleImageNavigation(-1)}
+                className="absolute left-4 top-1/2 -translate-y-1/2 z-10 cursor-pointer flex items-center justify-center shrink-0 text-highlight active:text-foreground hover:bg-primary/30 rounded p-2"
+                title="Previous Image"
+              >
+                <Icons.ArrowLeftBold className="w-8 h-8 lg:w-10 lg:h-10" />
+              </button>
+
+              {/* Next Image Button - Right Center */}
+              <button
+                onClick={() => handleImageNavigation(1)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 z-10 cursor-pointer flex items-center justify-center shrink-0 text-highlight active:text-foreground hover:bg-primary/30 rounded p-2"
+                title="Next Image"
+              >
+                <Icons.ArrowRightBold className="w-8 h-8 lg:w-10 lg:h-10" />
+              </button>
+            </>
           )}
           <ActiveViewportBehavior
             viewportId={viewportId}

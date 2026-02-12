@@ -3,6 +3,53 @@ import { useCine } from '@ohif/ui-next';
 import { Enums, eventTarget, cache } from '@cornerstonejs/core';
 import { useAppConfig } from '@state';
 
+/**
+ * Determines if a display set is a true cine/multi-frame video series
+ * vs a regular image series with many instances
+ *
+ * True cine series have:
+ * - isMultiFrame === true (single instance with NumberOfFrames > 1)
+ * - isDynamicVolume === true (4D volume data)
+ * - Single instance with multiple frames (numImageFrames > 1 and instances.length === 1)
+ *
+ * Regular image series have:
+ * - Multiple instances, each with NumberOfFrames = 1
+ * - numImageFrames equals instances.length (not NumberOfFrames)
+ */
+function isTrueCineSeries(displaySet) {
+  if (!displaySet) {
+    return false;
+  }
+
+  // Check for multi-frame instance (true cine)
+  if (displaySet.isMultiFrame === true) {
+    return true;
+  }
+
+  // Check for dynamic volume (4D cine)
+  if (displaySet.isDynamicVolume === true) {
+    return true;
+  }
+
+  // Check if it's a single instance with multiple frames
+  // For multi-frame instances, numImageFrames is set to NumberOfFrames
+  // For regular series, numImageFrames is set to instances.length
+  const instances = displaySet.instances || [];
+  const numImageFrames = displaySet.numImageFrames || 0;
+
+  // If single instance with multiple frames, it's a true cine
+  if (instances.length === 1 && numImageFrames > 1) {
+    // Additional check: verify the instance actually has NumberOfFrames > 1
+    const instance = instances[0];
+    if (instance && (instance.NumberOfFrames > 1 || numImageFrames > 1)) {
+      return true;
+    }
+  }
+
+  // Otherwise, it's a regular image series (many instances, each with 1 frame)
+  return false;
+}
+
 function WrappedCinePlayer({
   enabledVPElement,
   viewportId,
@@ -43,13 +90,14 @@ function WrappedCinePlayer({
   };
 
   const newDisplaySetHandler = useCallback(() => {
-    if (!enabledVPElement || !isCineEnabled) {
+    if (!enabledVPElement) {
       return;
     }
 
     const { viewports } = viewportGridService.getState();
     const { displaySetInstanceUIDs } = viewports.get(viewportId);
-    let frameRate = 16; // Always default to 1, ignore DICOM FrameRate tag
+    // Preserve user's custom frame rate if set, otherwise default to 16
+    let frameRate = cines[viewportId]?.frameRate || 16;
     let isPlaying = cines[viewportId]?.isPlaying || false;
 
     // Check if display set has changed (new series loaded)
@@ -63,14 +111,27 @@ function WrappedCinePlayer({
       previousDisplaySetUIDsRef.current = [...displaySetInstanceUIDs];
     }
 
-    // Auto-play on new display set if not already playing
-    if (!hasAutoPlayedRef.current) {
-      isPlaying = true; // Force playing on load
-      hasAutoPlayedRef.current = true;
-    }
+    // Check if any display set is a true cine series
+    let hasTrueCineSeries = false;
 
     displaySetInstanceUIDs.forEach(displaySetInstanceUID => {
       const displaySet = displaySetService.getDisplaySetByUID(displaySetInstanceUID);
+
+      if (!displaySet) {
+        return;
+      }
+
+      // Check if this is a true cine series
+      const isCine = isTrueCineSeries(displaySet);
+      if (isCine) {
+        hasTrueCineSeries = true;
+      }
+
+      // Only auto-play true cine series, not regular image series
+      if (isCine && !hasAutoPlayedRef.current) {
+        isPlaying = true; // Force playing on load for true cine
+        hasAutoPlayedRef.current = true;
+      }
 
       // Commented out to always use default frameRate of 1 instead of reading from DICOM tag
       // if (displaySet.FrameRate) {
@@ -97,12 +158,21 @@ function WrappedCinePlayer({
       }
     });
 
-    if (isPlaying) {
-      cineService.setIsCineEnabled(isPlaying);
+    // Only enable cine and set playing state for true cine series
+    if (hasTrueCineSeries) {
+      if (isPlaying) {
+        cineService.setIsCineEnabled(isPlaying);
+      }
+      // Preserve the frame rate when setting cine state
+      cineService.setCine({ id: viewportId, isPlaying, frameRate });
+      setNewStackFrameRate(frameRate);
+    } else {
+      // For regular image series, disable cine and stop playing
+      cineService.setCine({ id: viewportId, isPlaying: false, frameRate });
+      cineService.setIsCineEnabled(false);
+      setNewStackFrameRate(frameRate);
     }
-    cineService.setCine({ id: viewportId, isPlaying, frameRate });
-    setNewStackFrameRate(frameRate);
-  }, [displaySetService, viewportId, viewportGridService, cines, isCineEnabled, enabledVPElement]);
+  }, [displaySetService, viewportId, viewportGridService, cines, isCineEnabled, enabledVPElement, cineService]);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -170,15 +240,29 @@ function WrappedCinePlayer({
     };
   }, [cines, viewportId, cineService, enabledVPElement, cineHandler]);
 
-  // Always render the cine player - remove the conditional return
+  // Check if current display sets are true cine series
+  const { viewports } = viewportGridService.getState();
+  const { displaySetInstanceUIDs } = viewports.get(viewportId) || { displaySetInstanceUIDs: [] };
+  const hasTrueCineSeries = displaySetInstanceUIDs.some(displaySetInstanceUID => {
+    const displaySet = displaySetService.getDisplaySetByUID(displaySetInstanceUID);
+    return isTrueCineSeries(displaySet);
+  });
+
+  // Only render cine player for true cine series
+  if (!hasTrueCineSeries) {
+    return null;
+  }
+
   const cine = cines?.[viewportId] || { isPlaying: false, frameRate: 16 };
   const isPlaying = cine?.isPlaying || false;
+  // Use frame rate from cine state to ensure it's always in sync with user's setting
+  const currentFrameRate = cine?.frameRate || newStackFrameRate;
 
   return (
     <RenderCinePlayer
       viewportId={viewportId}
       cineService={cineService}
-      newStackFrameRate={newStackFrameRate}
+      newStackFrameRate={currentFrameRate}
       isPlaying={isPlaying}
       dynamicInfo={dynamicInfo}
       customizationService={customizationService}
