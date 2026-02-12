@@ -18,6 +18,7 @@ function WrappedCinePlayer({
   const [appConfig] = useAppConfig();
   const isMountedRef = useRef(null);
   const hasAutoPlayedRef = useRef(false); // Track if auto-play has been triggered
+  const previousDisplaySetUIDsRef = useRef<string[]>([]); // Track previous display set UIDs
 
   const cineHandler = () => {
     if (!cines?.[viewportId] || !enabledVPElement) {
@@ -50,6 +51,17 @@ function WrappedCinePlayer({
     const { displaySetInstanceUIDs } = viewports.get(viewportId);
     let frameRate = 16; // Always default to 1, ignore DICOM FrameRate tag
     let isPlaying = cines[viewportId]?.isPlaying || false;
+
+    // Check if display set has changed (new series loaded)
+    const displaySetChanged =
+      previousDisplaySetUIDsRef.current.length !== displaySetInstanceUIDs.length ||
+      previousDisplaySetUIDsRef.current.some((uid, index) => uid !== displaySetInstanceUIDs[index]);
+
+    // If display set changed, reset auto-play flag to allow auto-play for new series
+    if (displaySetChanged) {
+      hasAutoPlayedRef.current = false;
+      previousDisplaySetUIDsRef.current = [...displaySetInstanceUIDs];
+    }
 
     // Auto-play on new display set if not already playing
     if (!hasAutoPlayedRef.current) {
@@ -95,6 +107,7 @@ function WrappedCinePlayer({
   useEffect(() => {
     isMountedRef.current = true;
     hasAutoPlayedRef.current = false; // Reset on mount
+    previousDisplaySetUIDsRef.current = []; // Reset on mount
 
     // Enable cine player on mount
     cineService.setIsCineEnabled(true);
@@ -104,6 +117,7 @@ function WrappedCinePlayer({
     return () => {
       isMountedRef.current = false;
       hasAutoPlayedRef.current = false;
+      previousDisplaySetUIDsRef.current = [];
     };
   }, [isCineEnabled, newDisplaySetHandler]);
 
