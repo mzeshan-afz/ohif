@@ -761,6 +761,79 @@ const commandsModule = ({
 
       setTimeout(() => actions.scrollActiveThumbnailIntoView(), 0);
     },
+
+    updateAllViewportsDisplaySet: ({
+      direction,
+      excludeNonImageModalities,
+    }: UpdateViewportDisplaySetParams) => {
+      const nonImageModalities = ['SR', 'SEG', 'SM', 'RTSTRUCT', 'RTPLAN', 'RTDOSE'];
+
+      const currentDisplaySets = [...displaySetService.activeDisplaySets];
+
+      const { viewports, isHangingProtocolLayout } = viewportGridService.getState();
+
+      // Get all visible viewport IDs
+      const visibleViewportIds = Array.from(viewports.keys());
+      const viewportsToUpdate = [];
+
+      // For each visible viewport, find its current display set and move to next/prev
+      visibleViewportIds.forEach(viewportId => {
+        const viewport = viewports.get(viewportId);
+        if (!viewport || !viewport.displaySetInstanceUIDs || viewport.displaySetInstanceUIDs.length === 0) {
+          return;
+        }
+
+        const { displaySetInstanceUIDs } = viewport;
+        const currentDisplaySetInstanceUID = displaySetInstanceUIDs[0]; // Get first display set
+
+        const currentDisplaySetIndex = currentDisplaySets.findIndex(
+          displaySet => displaySet.displaySetInstanceUID === currentDisplaySetInstanceUID
+        );
+
+        if (currentDisplaySetIndex === -1) {
+          return;
+        }
+
+        let displaySetIndexToShow: number;
+
+        // Find next/previous valid display set
+        for (
+          displaySetIndexToShow = currentDisplaySetIndex + direction;
+          displaySetIndexToShow > -1 && displaySetIndexToShow < currentDisplaySets.length;
+          displaySetIndexToShow += direction
+        ) {
+          if (
+            !excludeNonImageModalities ||
+            !nonImageModalities.includes(currentDisplaySets[displaySetIndexToShow].Modality)
+          ) {
+            break;
+          }
+        }
+
+        if (displaySetIndexToShow < 0 || displaySetIndexToShow >= currentDisplaySets.length) {
+          return; // Skip this viewport if out of bounds
+        }
+
+        const { displaySetInstanceUID } = currentDisplaySets[displaySetIndexToShow];
+
+        // Get updated viewport info from hanging protocol
+        try {
+          const updatedViewportsForThis = hangingProtocolService.getViewportsRequireUpdate(
+            viewportId,
+            displaySetInstanceUID,
+            isHangingProtocolLayout
+          );
+          viewportsToUpdate.push(...updatedViewportsForThis);
+        } catch (error) {
+          console.warn(`Error updating viewport ${viewportId}:`, error);
+        }
+      });
+
+      if (viewportsToUpdate.length > 0) {
+        commandsManager.run('setDisplaySetsForViewports', { viewportsToUpdate });
+        setTimeout(() => actions.scrollActiveThumbnailIntoView(), 0);
+      }
+    },
   };
 
   const definitions = {
@@ -786,6 +859,7 @@ const commandsModule = ({
     toggleOneUp: actions.toggleOneUp,
     openDICOMTagViewer: actions.openDICOMTagViewer,
     updateViewportDisplaySet: actions.updateViewportDisplaySet,
+    updateAllViewportsDisplaySet: actions.updateAllViewportsDisplaySet,
     scrollActiveThumbnailIntoView: actions.scrollActiveThumbnailIntoView,
     addDisplaySetAsLayer: actions.addDisplaySetAsLayer,
     removeDisplaySetLayer: actions.removeDisplaySetLayer,

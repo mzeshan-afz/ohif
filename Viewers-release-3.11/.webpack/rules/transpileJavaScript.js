@@ -16,8 +16,10 @@ function transpileJavaScript(mode) {
           // 'dicom-microscopy-viewer',
           // https://github.com/openlayers/openlayers#supported-browsers
           // 'ol', --> Should be fine
+          // Include mathjs for proper ESM transpilation
+          'mathjs',
         ])
-      : excludeNodeModulesExcept([]);
+      : excludeNodeModulesExcept(['mathjs']);
 
   return {
     // Include mjs, ts, tsx, js, and jsx files.

@@ -1,6 +1,6 @@
 import React, { useEffect, useCallback, useRef } from 'react';
 import { Types } from '@ohif/core';
-import { ViewportGrid, ViewportPane } from '@ohif/ui-next';
+import { ViewportGrid, ViewportPane, Icons } from '@ohif/ui-next';
 import { useViewportGrid } from '@ohif/ui-next';
 import EmptyViewport from './EmptyViewport';
 import { useAppConfig } from '@state';
@@ -296,6 +296,14 @@ function ViewerViewportGrid(props: withAppTypes) {
     return viewportPanes;
   }, [viewports, activeViewportId, viewportComponents, dataSource]);
 
+  // Handler for multi-viewport series navigation
+  const handleAllViewportsNavigation = useCallback(
+    (direction: number) => {
+      commandsManager.runCommand('updateAllViewportsDisplaySet', { direction });
+    },
+    [commandsManager]
+  );
+
   /**
    * Loading indicator until numCols and numRows are gotten from the HangingProtocolService
    */
@@ -303,14 +311,38 @@ function ViewerViewportGrid(props: withAppTypes) {
     return null;
   }
 
+  const isMultipleViewports = viewports.size > 1;
+
   return (
-    <div className="border-input h-[calc(100%-0.25rem)] w-full border">
+    <div className="border-input h-[calc(100%-0.25rem)] w-full border relative">
       <ViewportGrid
         numRows={numRows}
         numCols={numCols}
       >
         {getViewportPanes()}
       </ViewportGrid>
+      {/* Series Navigation Buttons - Multiple Viewports (outside viewports, left/right) */}
+      {isMultipleViewports && (
+        <>
+          {/* Previous Series Button - Left */}
+          <button
+            onClick={() => handleAllViewportsNavigation(-1)}
+            className="absolute left-4 top-1/2 -translate-y-1/2 z-50 cursor-pointer flex items-center justify-center shrink-0 text-highlight active:text-foreground hover:bg-primary/30 rounded p-2 bg-black/50"
+            title="Previous Series (All Viewports)"
+          >
+            <Icons.ArrowLeftBold className="w-8 h-8 lg:w-10 lg:h-10" />
+          </button>
+
+          {/* Next Series Button - Right */}
+          <button
+            onClick={() => handleAllViewportsNavigation(1)}
+            className="absolute right-4 top-1/2 -translate-y-1/2 z-50 cursor-pointer flex items-center justify-center shrink-0 text-highlight active:text-foreground hover:bg-primary/30 rounded p-2 bg-black/50"
+            title="Next Series (All Viewports)"
+          >
+            <Icons.ArrowRightBold className="w-8 h-8 lg:w-10 lg:h-10" />
+          </button>
+        </>
+      )}
     </div>
   );
 }
