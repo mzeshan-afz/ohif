@@ -19,6 +19,16 @@ export default {
       },
       contentF: ({ referenceInstance }) => referenceInstance.SeriesDescription,
     },
+    {
+      id: 'SeriesNumber',
+      inheritsFrom: 'ohif.overlayItem',
+      label: 'S:',
+      title: 'Series number',
+      condition: ({ displaySet }) => {
+        return displaySet && displaySet.uiSeriesNumber !== undefined;
+      },
+      contentF: ({ displaySet }) => displaySet.uiSeriesNumber,
+    },
   ],
   'viewportOverlay.topRight': [],
   'viewportOverlay.bottomLeft': [

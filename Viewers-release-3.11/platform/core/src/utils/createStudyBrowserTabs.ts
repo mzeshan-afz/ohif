@@ -46,11 +46,19 @@ export function createStudyBrowserTabs(
     }
 
     // Assign incrementing series numbers per study (UI only)
+    // Store the UI series number on the actual display set for use in viewport overlays
     let seriesIndex = 1;
-    const displaySetsWithSeriesNumbers = sortedDisplaySets.map(ds => ({
-      ...ds,
-      seriesNumber: seriesIndex++,
-    }));
+    const displaySetsWithSeriesNumbers = sortedDisplaySets.map(ds => {
+      const displaySet = displaySetService.getDisplaySetByUID(ds.displaySetInstanceUID);
+      if (displaySet) {
+        // Store UI series number on the display set for overlay access
+        displaySet.uiSeriesNumber = seriesIndex;
+      }
+      return {
+        ...ds,
+        seriesNumber: seriesIndex++,
+      };
+    });
 
     const tabStudy = Object.assign({}, study, {
       displaySets: displaySetsWithSeriesNumbers,
