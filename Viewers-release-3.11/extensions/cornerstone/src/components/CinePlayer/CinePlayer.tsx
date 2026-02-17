@@ -69,7 +69,7 @@ function WrappedCinePlayer({ enabledVPElement, viewportId, servicesManager }: an
     servicesManager.services;
 
   const [{ isCineEnabled, cines }, cineService] = useCine();
-  const [newStackFrameRate, setNewStackFrameRate] = useState(16);
+  const [newStackFrameRate, setNewStackFrameRate] = useState(19);
   const [dynamicInfo, setDynamicInfo] = useState<any>(null);
 
   const isMountedRef = useRef(false);
@@ -85,7 +85,7 @@ function WrappedCinePlayer({ enabledVPElement, viewportId, servicesManager }: an
     const currentCine = cines?.[viewportId];
     if (!currentCine) return;
 
-    const { isPlaying = false, frameRate = 16 } = currentCine;
+    const { isPlaying = false, frameRate = 19 } = currentCine;
     const validFrameRate = Math.max(frameRate, 1);
 
     if (isPlaying) {
@@ -159,7 +159,7 @@ function WrappedCinePlayer({ enabledVPElement, viewportId, servicesManager }: an
         const { dynamicVolumeInfo } = displaySet;
         setDynamicInfo({
           volumeId: displaySet.displaySetInstanceUID,
-          dimensionGroupNumber: dynamicVolumeInfo.dimensionGroupNumber || 16,
+          dimensionGroupNumber: dynamicVolumeInfo.dimensionGroupNumber || 19,
           numDimensionGroups: dynamicVolumeInfo.timePoints.length,
           label: dynamicVolumeInfo.splittingTag,
         });
@@ -182,9 +182,9 @@ function WrappedCinePlayer({ enabledVPElement, viewportId, servicesManager }: an
 
       setNewStackFrameRate(frameRate);
     } else {
-      cineService.setCine({ id: viewportId, isPlaying: false, frameRate: frameRate || 16 });
+      cineService.setCine({ id: viewportId, isPlaying: false, frameRate: frameRate || 19 });
       cineService.setIsCineEnabled(false);
-      setNewStackFrameRate(frameRate || 16);
+      setNewStackFrameRate(frameRate || 19);
     }
   }, [displaySetService, viewportGridService, viewportId, cines, cineService, enabledVPElement]);
 
@@ -237,7 +237,7 @@ function WrappedCinePlayer({ enabledVPElement, viewportId, servicesManager }: an
 
   if (!hasTrueCineSeries) return null;
 
-  const cine = cines?.[viewportId] || { isPlaying: false, frameRate: 16 };
+  const cine = cines?.[viewportId] || { isPlaying: false, frameRate: 19 };
 
   const CinePlayerComponent = customizationService.getCustomization('cinePlayer');
 
