@@ -45,8 +45,15 @@ export function createStudyBrowserTabs(
       sortedDisplaySets = displaySetsForStudy;
     }
 
+    // Assign incrementing series numbers per study (UI only)
+    let seriesIndex = 1;
+    const displaySetsWithSeriesNumbers = sortedDisplaySets.map(ds => ({
+      ...ds,
+      seriesNumber: seriesIndex++,
+    }));
+
     const tabStudy = Object.assign({}, study, {
-      displaySets: sortedDisplaySets,
+      displaySets: displaySetsWithSeriesNumbers,
     });
 
     if (primaryStudyInstanceUIDs.includes(study.studyInstanceUid)) {

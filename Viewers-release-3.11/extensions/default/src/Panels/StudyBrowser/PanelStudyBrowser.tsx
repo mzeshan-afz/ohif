@@ -422,7 +422,7 @@ function PanelStudyBrowser({
           setActiveTabName(clickedTabName);
         }}
         onClickUntrack={onClickUntrack}
-        onClickThumbnail={() => {}}
+        onClickThumbnail={() => { }}
         onDoubleClickThumbnail={onDoubleClickThumbnailHandler}
         activeDisplaySetInstanceUIDs={activeDisplaySetInstanceUIDs}
         showSettings={actionIcons.find(icon => icon.id === 'settings')?.value}
@@ -483,7 +483,7 @@ function _mapDisplaySets(displaySets, displaySetLoadingState, thumbnailImageSrcM
       array.push({
         displaySetInstanceUID,
         description: ds.SeriesDescription || '',
-        seriesNumber: ds.SeriesNumber,
+        seriesNumber: ds.SeriesNumber, // Will be reassigned per study in createStudyBrowserTabs
         modality: ds.Modality,
         seriesDate: formatDate(ds.SeriesDate),
         numInstances: ds.numImageFrames,

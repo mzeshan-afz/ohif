@@ -47,7 +47,6 @@ function getVideoType(displaySet: any): 'grayscale' | 'color' {
   )
     .toString()
     .toUpperCase();
-  console.log('photometricInterpretation', photometricInterpretation);
 
   // Debug once if needed
   // console.log('VIDEO TYPE DEBUG', { samplesPerPixel, photometricInterpretation });
