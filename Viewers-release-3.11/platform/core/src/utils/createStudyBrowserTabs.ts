@@ -1,6 +1,52 @@
 import { useSystem } from '../contextProviders/SystemProvider';
 
 /**
+ * Assigns UI series numbers to display sets based on their order within each study.
+ * This ensures series numbers are available even when the sidebar is closed.
+ *
+ * @param {object} displaySetService - The display set service
+ * @param {string[]} studyInstanceUIDs - Array of study instance UIDs
+ */
+export function assignSeriesNumbersToDisplaySets(displaySetService, studyInstanceUIDs) {
+  if (!displaySetService || !studyInstanceUIDs || studyInstanceUIDs.length === 0) {
+    return;
+  }
+
+  const activeDisplaySets = displaySetService.getActiveDisplaySets();
+  if (!activeDisplaySets || activeDisplaySets.length === 0) {
+    return;
+  }
+
+  // Group display sets by study
+  const displaySetsByStudy = new Map();
+  studyInstanceUIDs.forEach(studyUID => {
+    displaySetsByStudy.set(studyUID, []);
+  });
+
+  activeDisplaySets.forEach(displaySet => {
+    const studyUID = displaySet.StudyInstanceUID;
+    if (displaySetsByStudy.has(studyUID)) {
+      displaySetsByStudy.get(studyUID).push(displaySet);
+    }
+  });
+
+  // Assign incrementing series numbers per study
+  displaySetsByStudy.forEach((studyDisplaySets, studyUID) => {
+    // Sort by SeriesInstanceUID for consistent ordering
+    studyDisplaySets.sort((a, b) => {
+      const uidA = a.SeriesInstanceUID || '';
+      const uidB = b.SeriesInstanceUID || '';
+      return uidA.localeCompare(uidB);
+    });
+
+    let seriesIndex = 1;
+    studyDisplaySets.forEach(displaySet => {
+      displaySet.uiSeriesNumber = seriesIndex++;
+    });
+  });
+}
+
+/**
  *
  * @param {string[]} primaryStudyInstanceUIDs
  * @param {object[]} studyDisplayList

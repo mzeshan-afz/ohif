@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useRef } from 'react';
+import React, { useEffect, useCallback, useRef, useState } from 'react';
 import { Types } from '@ohif/core';
 import { ViewportGrid, ViewportPane, Icons } from '@ohif/ui-next';
 import { useViewportGrid } from '@ohif/ui-next';
@@ -13,6 +13,9 @@ function ViewerViewportGrid(props: withAppTypes) {
   const { layout, activeViewportId, viewports, isHangingProtocolLayout } = viewportGrid;
   const { numCols, numRows } = layout;
   const layoutHash = useRef(null);
+  const [canNavigateForwardState, setCanNavigateForwardState] = useState(false);
+  const [canNavigateBackwardState, setCanNavigateBackwardState] = useState(false);
+  const previousViewportCountRef = useRef(viewports.size);
 
   const { displaySetService, hangingProtocolService, uiNotificationService, customizationService } =
     servicesManager.services;
@@ -296,6 +299,146 @@ function ViewerViewportGrid(props: withAppTypes) {
     return viewportPanes;
   }, [viewports, activeViewportId, viewportComponents, dataSource]);
 
+  // Auto-populate new viewports when layout changes and viewports are added
+  useEffect(() => {
+    const previousCount = previousViewportCountRef.current;
+    const currentCount = viewports.size;
+
+    // Only auto-populate if viewports increased (not decreased or same)
+    if (currentCount > previousCount && currentCount > 1 && previousCount > 0) {
+      const currentDisplaySets = displaySetService.activeDisplaySets;
+      const nonImageModalities = ['SR', 'SEG', 'SM', 'RTSTRUCT', 'RTPLAN', 'RTDOSE'];
+      const filteredDisplaySets = currentDisplaySets.filter(ds => !nonImageModalities.includes(ds.Modality));
+
+      if (filteredDisplaySets.length === 0) {
+        previousViewportCountRef.current = currentCount;
+        return;
+      }
+
+      // Find the maximum index of currently displayed series
+      let maxIndex = -1;
+      viewports.forEach((viewport, viewportId) => {
+        if (!viewport.displaySetInstanceUIDs || viewport.displaySetInstanceUIDs.length === 0) {
+          return;
+        }
+        const currentDisplaySetInstanceUID = viewport.displaySetInstanceUIDs[0];
+        const currentDisplaySetIndex = filteredDisplaySets.findIndex(
+          displaySet => displaySet.displaySetInstanceUID === currentDisplaySetInstanceUID
+        );
+        if (currentDisplaySetIndex !== -1 && currentDisplaySetIndex > maxIndex) {
+          maxIndex = currentDisplaySetIndex;
+        }
+      });
+
+      // Find viewports that don't have display sets (newly added viewports)
+      const newViewports = Array.from(viewports.entries()).filter(
+        ([viewportId, viewport]) =>
+          !viewport.displaySetInstanceUIDs || viewport.displaySetInstanceUIDs.length === 0
+      );
+
+      if (newViewports.length > 0 && maxIndex !== -1) {
+        // Calculate starting index for new viewports (continue from maxIndex + 1)
+        const startIndex = maxIndex + 1;
+        const viewportsToUpdate = [];
+
+        newViewports.forEach(([viewportId], index) => {
+          const seriesIndex = startIndex + index;
+
+          if (seriesIndex >= filteredDisplaySets.length || seriesIndex < 0) {
+            return; // Skip if out of bounds
+          }
+
+          const { displaySetInstanceUID } = filteredDisplaySets[seriesIndex];
+
+          try {
+            const updatedViewportsForThis = hangingProtocolService.getViewportsRequireUpdate(
+              viewportId,
+              displaySetInstanceUID,
+              isHangingProtocolLayout
+            );
+            viewportsToUpdate.push(...updatedViewportsForThis);
+          } catch (error) {
+            console.warn(`Error updating new viewport ${viewportId}:`, error);
+          }
+        });
+
+        if (viewportsToUpdate.length > 0) {
+          // Use setTimeout to ensure layout change is complete before updating
+          setTimeout(() => {
+            commandsManager.runCommand('setDisplaySetsForViewports', { viewportsToUpdate });
+          }, 100);
+        }
+      }
+    }
+
+    // Update the previous count
+    previousViewportCountRef.current = currentCount;
+  }, [viewports.size, displaySetService, hangingProtocolService, isHangingProtocolLayout, commandsManager]);
+
+  // Update navigation bounds when viewports or display sets change
+  useEffect(() => {
+    const updateNavigationBounds = () => {
+      if (viewports.size <= 1) {
+        setCanNavigateForwardState(false);
+        setCanNavigateBackwardState(false);
+        return;
+      }
+
+      const currentDisplaySets = displaySetService.activeDisplaySets;
+      const nonImageModalities = ['SR', 'SEG', 'SM', 'RTSTRUCT', 'RTPLAN', 'RTDOSE'];
+      const filteredDisplaySets = currentDisplaySets.filter(ds => !nonImageModalities.includes(ds.Modality));
+
+      if (filteredDisplaySets.length === 0) {
+        setCanNavigateForwardState(false);
+        setCanNavigateBackwardState(false);
+        return;
+      }
+
+      // Find the min and max indices of currently displayed series
+      let minIndex = Infinity;
+      let maxIndex = -1;
+
+      viewports.forEach((viewport, viewportId) => {
+        if (!viewport.displaySetInstanceUIDs || viewport.displaySetInstanceUIDs.length === 0) {
+          return;
+        }
+        const currentDisplaySetInstanceUID = viewport.displaySetInstanceUIDs[0];
+        const currentDisplaySetIndex = filteredDisplaySets.findIndex(
+          displaySet => displaySet.displaySetInstanceUID === currentDisplaySetInstanceUID
+        );
+        if (currentDisplaySetIndex !== -1) {
+          if (currentDisplaySetIndex < minIndex) {
+            minIndex = currentDisplaySetIndex;
+          }
+          if (currentDisplaySetIndex > maxIndex) {
+            maxIndex = currentDisplaySetIndex;
+          }
+        }
+      });
+
+      // Check if we can go forward (if maxIndex + numViewports < total length)
+      const canForward = maxIndex !== -1 && maxIndex + viewports.size < filteredDisplaySets.length;
+
+      // Check if we can go backward (if minIndex - numViewports >= 0)
+      const canBackward = minIndex !== Infinity && minIndex - viewports.size >= 0;
+
+      setCanNavigateForwardState(canForward);
+      setCanNavigateBackwardState(canBackward);
+    };
+
+    updateNavigationBounds();
+
+    // Subscribe to display set changes
+    const subscription = displaySetService.subscribe(
+      displaySetService.EVENTS.DISPLAY_SETS_CHANGED,
+      updateNavigationBounds
+    );
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [viewports, displaySetService]);
+
   // Handler for multi-viewport series navigation
   const handleAllViewportsNavigation = useCallback(
     (direction: number) => {
@@ -327,7 +470,12 @@ function ViewerViewportGrid(props: withAppTypes) {
           {/* Previous Series Button - Left */}
           <button
             onClick={() => handleAllViewportsNavigation(-1)}
-            className="absolute left-4 top-1/2 -translate-y-1/2 z-50 cursor-pointer flex items-center justify-center shrink-0 text-highlight active:text-foreground hover:bg-primary/30 rounded p-2 bg-black/50"
+            disabled={!canNavigateBackwardState}
+            className={`absolute left-4 top-1/2 -translate-y-1/2 z-50 flex items-center justify-center shrink-0 rounded p-2 bg-black/50 ${
+              canNavigateBackwardState
+                ? 'cursor-pointer text-highlight active:text-foreground hover:bg-primary/30'
+                : 'cursor-not-allowed text-gray-500 opacity-50'
+            }`}
             title="Previous Series (All Viewports)"
           >
             <Icons.ArrowLeftBold className="w-8 h-8 lg:w-10 lg:h-10" />
@@ -336,7 +484,12 @@ function ViewerViewportGrid(props: withAppTypes) {
           {/* Next Series Button - Right */}
           <button
             onClick={() => handleAllViewportsNavigation(1)}
-            className="absolute right-4 top-1/2 -translate-y-1/2 z-50 cursor-pointer flex items-center justify-center shrink-0 text-highlight active:text-foreground hover:bg-primary/30 rounded p-2 bg-black/50"
+            disabled={!canNavigateForwardState}
+            className={`absolute right-4 top-1/2 -translate-y-1/2 z-50 flex items-center justify-center shrink-0 rounded p-2 bg-black/50 ${
+              canNavigateForwardState
+                ? 'cursor-pointer text-highlight active:text-foreground hover:bg-primary/30'
+                : 'cursor-not-allowed text-gray-500 opacity-50'
+            }`}
             title="Next Series (All Viewports)"
           >
             <Icons.ArrowRightBold className="w-8 h-8 lg:w-10 lg:h-10" />

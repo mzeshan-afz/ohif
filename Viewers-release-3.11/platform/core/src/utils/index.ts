@@ -39,7 +39,7 @@ import {
   instancesSortCriteria,
 } from './sortStudy';
 import { splitComma, getSplitParam } from './splitComma';
-import { createStudyBrowserTabs } from './createStudyBrowserTabs';
+import { createStudyBrowserTabs, assignSeriesNumbersToDisplaySets } from './createStudyBrowserTabs';
 import { sopClassDictionary } from './sopClassDictionary';
 import * as MeasurementFilters from './measurementFilters';
 import getClosestOrientationFromIOP from './getClosestOrientationFromIOP';
@@ -91,6 +91,7 @@ const utils = {
   getSplitParam,
   generateAcceptHeader,
   createStudyBrowserTabs,
+  assignSeriesNumbersToDisplaySets,
   MeasurementFilters,
   getClosestOrientationFromIOP,
   calculateScanAxisNormal,
@@ -129,6 +130,7 @@ export {
   getSplitParam,
   generateAcceptHeader,
   createStudyBrowserTabs,
+  assignSeriesNumbersToDisplaySets,
   MeasurementFilters,
   getClosestOrientationFromIOP,
 };

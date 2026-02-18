@@ -318,7 +318,7 @@ const OHIFCornerstoneViewport = React.memo(
     // Handler for image navigation (previous/next image in series)
     const handleImageNavigation = useCallback(
       (direction: number) => {
-        // Get the enabled element for this specific viewport
+        // Get fresh enabled element reference each time to avoid using destroyed viewport
         const enabledElement = getViewportEnabledElement(viewportId);
 
         if (!enabledElement) {
@@ -326,15 +326,16 @@ const OHIFCornerstoneViewport = React.memo(
           return;
         }
 
-        const { viewport } = enabledElement;
+        const { viewport, element } = enabledElement;
 
-        if (!viewport) {
-          console.warn('No viewport found for enabled element');
+        if (!viewport || !element) {
+          console.warn('No viewport or element found for enabled element');
           return;
         }
 
         try {
           // Get current image index and total number of slices
+          // Wrap in try-catch to handle destroyed viewport gracefully
           const currentImageIndex = viewport.getCurrentImageIdIndex();
           const numberOfSlices = viewport.getNumberOfSlices();
 
@@ -353,15 +354,47 @@ const OHIFCornerstoneViewport = React.memo(
             newImageIndex = 0;
           }
 
-          // Use jumpToSlice with debounceLoading to prevent loading indicator issues
-          csUtils.jumpToSlice(viewport.element, {
+          // Use jumpToSlice with element directly (not viewport.element)
+          // This avoids issues with destroyed viewport references
+          csUtils.jumpToSlice(element, {
             imageIndex: newImageIndex,
             debounceLoading: true,
           });
         } catch (error) {
-          console.warn('Error navigating image:', error);
-          // Fallback to scroll if jumpToSlice fails
-          csUtils.scroll(viewport, { delta: direction });
+          // Handle destroyed viewport error
+          if (error?.message?.includes('destroyed') || error?.message?.includes('no longer usable')) {
+            // Viewport was destroyed, likely during series navigation
+            // This is expected and we can safely ignore it
+            console.debug('Viewport was destroyed during navigation, this is expected during series changes');
+            return;
+          }
+
+          // For other errors, try to get fresh reference and retry
+          console.warn('Error navigating image, attempting to get fresh viewport:', error);
+          const freshEnabledElement = getViewportEnabledElement(viewportId);
+          if (freshEnabledElement?.viewport && freshEnabledElement?.element) {
+            try {
+              const freshCurrentIndex = freshEnabledElement.viewport.getCurrentImageIdIndex();
+              const freshNumberOfSlices = freshEnabledElement.viewport.getNumberOfSlices();
+
+              if (freshNumberOfSlices > 0) {
+                let freshNewIndex = freshCurrentIndex + direction;
+                if (freshNewIndex < 0) {
+                  freshNewIndex = freshNumberOfSlices - 1;
+                } else if (freshNewIndex >= freshNumberOfSlices) {
+                  freshNewIndex = 0;
+                }
+
+                csUtils.jumpToSlice(freshEnabledElement.element, {
+                  imageIndex: freshNewIndex,
+                  debounceLoading: true,
+                });
+              }
+            } catch (retryError) {
+              // If retry also fails, silently fail (viewport is likely being recreated)
+              console.debug('Could not navigate after retry, viewport may be recreating:', retryError);
+            }
+          }
         }
       },
       [viewportId]

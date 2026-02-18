@@ -12,6 +12,15 @@ const { sortStudyInstances, formatDate, createStudyBrowserTabs } = utils;
 
 const thumbnailNoImageModalities = ['SR', 'SEG', 'RTSTRUCT', 'RTPLAN', 'RTDOSE', 'DOC', 'PMAP'];
 
+// Module-level cache to persist study data across component remounts
+// This prevents refetching studies when navigating away and back to the viewer
+const studyDataCache = {
+  // Map of StudyInstanceUID -> study display list data
+  studyDisplayListCache: new Map(),
+  // Set of StudyInstanceUIDs that have been fetched
+  fetchedStudyUIDs: new Set(),
+};
+
 /**
  * Study Browser component that displays and manages studies and their display sets
  */
@@ -31,7 +40,6 @@ function PanelStudyBrowser({
 
   const internalImageViewer = useImageViewer();
   const StudyInstanceUIDs = internalImageViewer.StudyInstanceUIDs;
-  const fetchedStudiesRef = useRef(new Set());
 
   const [{ activeViewportId, viewports, isHangingProtocolLayout }] = useViewportGrid();
   const [activeTabName, setActiveTabName] = useState(studyMode);
@@ -104,14 +112,35 @@ function PanelStudyBrowser({
 
   // ~~ studyDisplayList
   useEffect(() => {
+    // First, load any cached study data
+    const cachedStudies = [];
+    StudyInstanceUIDs.forEach(studyUID => {
+      if (studyDataCache.studyDisplayListCache.has(studyUID)) {
+        const cachedData = studyDataCache.studyDisplayListCache.get(studyUID);
+        cachedStudies.push(...cachedData);
+      }
+    });
+
+    if (cachedStudies.length > 0) {
+      setStudyDisplayList(prevArray => {
+        const ret = [...prevArray];
+        for (const study of cachedStudies) {
+          if (!prevArray.find(it => it.studyInstanceUid === study.studyInstanceUid)) {
+            ret.push(study);
+          }
+        }
+        return ret;
+      });
+    }
+
     // Fetch all studies for the patient in each primary study
     async function fetchStudiesForPatient(StudyInstanceUID) {
-      // Skip fetching if we've already fetched this study
-      if (fetchedStudiesRef.current.has(StudyInstanceUID)) {
+      // Skip fetching if we've already fetched this study (check module-level cache)
+      if (studyDataCache.fetchedStudyUIDs.has(StudyInstanceUID)) {
         return;
       }
 
-      fetchedStudiesRef.current.add(StudyInstanceUID);
+      studyDataCache.fetchedStudyUIDs.add(StudyInstanceUID);
 
       // current study qido
       const qidoForStudyUID = await dataSource.query.studies.search({
@@ -144,6 +173,9 @@ function PanelStudyBrowser({
         };
       });
 
+      // Cache the fetched studies data by StudyInstanceUID
+      studyDataCache.studyDisplayListCache.set(StudyInstanceUID, actuallyMappedStudies);
+
       setStudyDisplayList(prevArray => {
         const ret = [...prevArray];
         for (const study of actuallyMappedStudies) {
@@ -155,7 +187,12 @@ function PanelStudyBrowser({
       });
     }
 
-    StudyInstanceUIDs.forEach(sid => fetchStudiesForPatient(sid));
+    // Only fetch studies that haven't been fetched yet
+    StudyInstanceUIDs.forEach(sid => {
+      if (!studyDataCache.fetchedStudyUIDs.has(sid)) {
+        fetchStudiesForPatient(sid);
+      }
+    });
   }, [StudyInstanceUIDs, dataSource, getStudiesForPatientByMRN, navigate]);
 
   // ~~ Initial Thumbnails
@@ -248,6 +285,13 @@ function PanelStudyBrowser({
         if (!hasLoadedViewports) {
           return;
         }
+
+        // Assign series numbers when new display sets are added
+        if (StudyInstanceUIDs && StudyInstanceUIDs.length > 0) {
+          const { assignSeriesNumbersToDisplaySets } = utils;
+          assignSeriesNumbersToDisplaySets(displaySetService, StudyInstanceUIDs);
+        }
+
         const { displaySetsAdded, options } = data;
         displaySetsAdded.forEach(async dSet => {
           const displaySetInstanceUID = dSet.displaySetInstanceUID;
@@ -292,11 +336,26 @@ function PanelStudyBrowser({
   }, [displaySetService, dataSource, getImageSrc, hasLoadedViewports]);
 
   useEffect(() => {
+    // Assign series numbers to display sets whenever they change
+    // This ensures series numbers are available even when sidebar is closed
+    if (StudyInstanceUIDs && StudyInstanceUIDs.length > 0) {
+      const { assignSeriesNumbersToDisplaySets } = utils;
+      assignSeriesNumbersToDisplaySets(displaySetService, StudyInstanceUIDs);
+    }
+  }, [displaySetService.activeDisplaySets, StudyInstanceUIDs, displaySetService]);
+
+  useEffect(() => {
     // TODO: Will this always hold _all_ the displaySets we care about?
     // DISPLAY_SETS_CHANGED returns `DisplaySerService.activeDisplaySets`
     const SubscriptionDisplaySetsChanged = displaySetService.subscribe(
       displaySetService.EVENTS.DISPLAY_SETS_CHANGED,
       changedDisplaySets => {
+        // Assign series numbers whenever display sets change
+        if (StudyInstanceUIDs && StudyInstanceUIDs.length > 0) {
+          const { assignSeriesNumbersToDisplaySets } = utils;
+          assignSeriesNumbersToDisplaySets(displaySetService, StudyInstanceUIDs);
+        }
+
         const mappedDisplaySets = mapDisplaySetsWithState(
           changedDisplaySets,
           displaySetsLoadingState,
@@ -315,6 +374,12 @@ function PanelStudyBrowser({
     const SubscriptionDisplaySetMetaDataInvalidated = displaySetService.subscribe(
       displaySetService.EVENTS.DISPLAY_SET_SERIES_METADATA_INVALIDATED,
       () => {
+        // Assign series numbers whenever display set metadata is invalidated
+        if (StudyInstanceUIDs && StudyInstanceUIDs.length > 0) {
+          const { assignSeriesNumbersToDisplaySets } = utils;
+          assignSeriesNumbersToDisplaySets(displaySetService, StudyInstanceUIDs);
+        }
+
         const mappedDisplaySets = mapDisplaySetsWithState(
           displaySetService.getActiveDisplaySets(),
           displaySetsLoadingState,

@@ -770,13 +770,28 @@ const commandsModule = ({
 
       const currentDisplaySets = [...displaySetService.activeDisplaySets];
 
+      // Filter out non-image modalities if needed
+      const filteredDisplaySets = excludeNonImageModalities
+        ? currentDisplaySets.filter(ds => !nonImageModalities.includes(ds.Modality))
+        : currentDisplaySets;
+
+      if (filteredDisplaySets.length === 0) {
+        return;
+      }
+
       const { viewports, isHangingProtocolLayout } = viewportGridService.getState();
 
       // Get all visible viewport IDs
       const visibleViewportIds = Array.from(viewports.keys());
-      const viewportsToUpdate = [];
+      const numViewports = visibleViewportIds.length;
 
-      // For each visible viewport, find its current display set and move to next/prev
+      if (numViewports === 0) {
+        return;
+      }
+
+      // Find the minimum and maximum indices of currently displayed series across all viewports
+      let minIndex = Infinity;
+      let maxIndex = -1;
       visibleViewportIds.forEach(viewportId => {
         const viewport = viewports.get(viewportId);
         if (!viewport || !viewport.displaySetInstanceUIDs || viewport.displaySetInstanceUIDs.length === 0) {
@@ -784,37 +799,60 @@ const commandsModule = ({
         }
 
         const { displaySetInstanceUIDs } = viewport;
-        const currentDisplaySetInstanceUID = displaySetInstanceUIDs[0]; // Get first display set
-
-        const currentDisplaySetIndex = currentDisplaySets.findIndex(
+        const currentDisplaySetInstanceUID = displaySetInstanceUIDs[0];
+        const currentDisplaySetIndex = filteredDisplaySets.findIndex(
           displaySet => displaySet.displaySetInstanceUID === currentDisplaySetInstanceUID
         );
 
-        if (currentDisplaySetIndex === -1) {
-          return;
-        }
-
-        let displaySetIndexToShow: number;
-
-        // Find next/previous valid display set
-        for (
-          displaySetIndexToShow = currentDisplaySetIndex + direction;
-          displaySetIndexToShow > -1 && displaySetIndexToShow < currentDisplaySets.length;
-          displaySetIndexToShow += direction
-        ) {
-          if (
-            !excludeNonImageModalities ||
-            !nonImageModalities.includes(currentDisplaySets[displaySetIndexToShow].Modality)
-          ) {
-            break;
+        if (currentDisplaySetIndex !== -1) {
+          if (currentDisplaySetIndex < minIndex) {
+            minIndex = currentDisplaySetIndex;
+          }
+          if (currentDisplaySetIndex > maxIndex) {
+            maxIndex = currentDisplaySetIndex;
           }
         }
+      });
 
-        if (displaySetIndexToShow < 0 || displaySetIndexToShow >= currentDisplaySets.length) {
-          return; // Skip this viewport if out of bounds
+      if (minIndex === Infinity || maxIndex === -1) {
+        return;
+      }
+
+      // Calculate the starting index for the next/previous batch
+      let startIndex: number;
+      if (direction > 0) {
+        // Forward: load next N series starting from after the maximum index
+        startIndex = maxIndex + 1;
+      } else {
+        // Backward: load previous N series starting from before the minimum index
+        startIndex = minIndex - numViewports;
+      }
+
+      // Check bounds
+      if (startIndex < 0 || startIndex >= filteredDisplaySets.length) {
+        return; // Out of bounds
+      }
+
+      // Calculate end index
+      const endIndex = direction > 0
+        ? Math.min(startIndex + numViewports, filteredDisplaySets.length)
+        : startIndex + numViewports;
+
+      if (endIndex <= startIndex || startIndex < 0) {
+        return;
+      }
+
+      const viewportsToUpdate = [];
+
+      // Assign series to viewports in order
+      visibleViewportIds.forEach((viewportId, viewportIndex) => {
+        const seriesIndex = startIndex + viewportIndex;
+
+        if (seriesIndex >= filteredDisplaySets.length || seriesIndex < 0) {
+          return; // Skip if out of bounds
         }
 
-        const { displaySetInstanceUID } = currentDisplaySets[displaySetIndexToShow];
+        const { displaySetInstanceUID } = filteredDisplaySets[seriesIndex];
 
         // Get updated viewport info from hanging protocol
         try {
