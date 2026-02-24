@@ -46,6 +46,40 @@ export async function defaultRouteInit(
   }
 
   const unsubscriptions = [];
+  // Subscribe to display set events to assign series numbers globally
+  // This ensures series numbers are available even when sidebar is closed
+  const assignSeriesNumbers = () => {
+    if (studyInstanceUIDs && studyInstanceUIDs.length > 0) {
+      const { assignSeriesNumbersToDisplaySets } = utils;
+      assignSeriesNumbersToDisplaySets(displaySetService, studyInstanceUIDs);
+    }
+  };
+
+  // Assign series numbers when display sets are added
+  const { unsubscribe: displaySetsAddedUnsubscribe } = displaySetService.subscribe(
+    displaySetService.EVENTS.DISPLAY_SETS_ADDED,
+    assignSeriesNumbers
+  );
+
+  // Assign series numbers when display sets change
+  const { unsubscribe: displaySetsChangedUnsubscribe } = displaySetService.subscribe(
+    displaySetService.EVENTS.DISPLAY_SETS_CHANGED,
+    assignSeriesNumbers
+  );
+
+  // Assign series numbers when display set metadata is invalidated
+  const { unsubscribe: displaySetMetadataInvalidatedUnsubscribe } = displaySetService.subscribe(
+    displaySetService.EVENTS.DISPLAY_SET_SERIES_METADATA_INVALIDATED,
+    assignSeriesNumbers
+  );
+
+  // Initial assignment
+  assignSeriesNumbers();
+
+  unsubscriptions.push(displaySetsAddedUnsubscribe);
+  unsubscriptions.push(displaySetsChangedUnsubscribe);
+  unsubscriptions.push(displaySetMetadataInvalidatedUnsubscribe);
+
   const issuedWarningSeries = [];
   const { unsubscribe: instanceAddedUnsubscribe } = DicomMetadataStore.subscribe(
     DicomMetadataStore.EVENTS.INSTANCES_ADDED,
@@ -140,7 +174,11 @@ export async function defaultRouteInit(
       }
     });
 
-    await Promise.allSettled(allPromises).then(applyHangingProtocol);
+    await Promise.allSettled(allPromises).then(() => {
+      // Assign series numbers after initial display sets are loaded
+      assignSeriesNumbers();
+      applyHangingProtocol();
+    });
     startRemainingPromises(remainingPromises);
     applyHangingProtocol();
   });

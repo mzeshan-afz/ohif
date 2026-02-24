@@ -318,24 +318,22 @@ const OHIFCornerstoneViewport = React.memo(
     // Handler for image navigation (previous/next image in series)
     const handleImageNavigation = useCallback(
       (direction: number) => {
-        // Get fresh enabled element reference each time to avoid using destroyed viewport
-        const enabledElement = getViewportEnabledElement(viewportId);
-
-        if (!enabledElement) {
-          console.warn('No enabled element found for viewport:', viewportId);
-          return;
-        }
-
-        const { viewport, element } = enabledElement;
-
-        if (!viewport || !element) {
-          console.warn('No viewport or element found for enabled element');
-          return;
-        }
-
         try {
+          // Get viewport directly from cornerstoneViewportService
+          const viewport = cornerstoneViewportService.getCornerstoneViewport(viewportId);
+
+          if (!viewport) {
+            console.warn('No viewport found for viewportId:', viewportId);
+            return;
+          }
+
+          // Check if viewport has been destroyed
+          if (typeof (viewport as any).hasBeenDestroyed === 'function' && (viewport as any).hasBeenDestroyed()) {
+            console.debug('Viewport has been destroyed, skipping image navigation');
+            return;
+          }
+
           // Get current image index and total number of slices
-          // Wrap in try-catch to handle destroyed viewport gracefully
           const currentImageIndex = viewport.getCurrentImageIdIndex();
           const numberOfSlices = viewport.getNumberOfSlices();
 
@@ -347,35 +345,51 @@ const OHIFCornerstoneViewport = React.memo(
           // Calculate new image index
           let newImageIndex = currentImageIndex + direction;
 
-          // Handle bounds (wrap around or clamp)
+          // Handle bounds (wrap around)
           if (newImageIndex < 0) {
             newImageIndex = numberOfSlices - 1;
           } else if (newImageIndex >= numberOfSlices) {
             newImageIndex = 0;
           }
 
-          // Use jumpToSlice with element directly (not viewport.element)
-          // This avoids issues with destroyed viewport references
-          csUtils.jumpToSlice(element, {
+          // Check again before jumping (viewport might be destroyed during calculation)
+          if (typeof (viewport as any).hasBeenDestroyed === 'function' && (viewport as any).hasBeenDestroyed()) {
+            console.debug('Viewport was destroyed during navigation calculation');
+            return;
+          }
+
+          // Use jumpToSlice with viewport.element
+          if (!viewport.element) {
+            console.warn('Viewport element not available');
+            return;
+          }
+
+          csUtils.jumpToSlice(viewport.element, {
             imageIndex: newImageIndex,
             debounceLoading: true,
           });
         } catch (error) {
           // Handle destroyed viewport error
           if (error?.message?.includes('destroyed') || error?.message?.includes('no longer usable')) {
-            // Viewport was destroyed, likely during series navigation
-            // This is expected and we can safely ignore it
-            console.debug('Viewport was destroyed during navigation, this is expected during series changes');
+            console.debug('Viewport was destroyed during navigation');
             return;
           }
 
-          // For other errors, try to get fresh reference and retry
+          // For other errors, try to get fresh reference and retry once
           console.warn('Error navigating image, attempting to get fresh viewport:', error);
-          const freshEnabledElement = getViewportEnabledElement(viewportId);
-          if (freshEnabledElement?.viewport && freshEnabledElement?.element) {
-            try {
-              const freshCurrentIndex = freshEnabledElement.viewport.getCurrentImageIdIndex();
-              const freshNumberOfSlices = freshEnabledElement.viewport.getNumberOfSlices();
+          try {
+            const freshViewport = cornerstoneViewportService.getCornerstoneViewport(viewportId);
+
+            if (freshViewport && freshViewport.element) {
+              // Check if fresh viewport is also destroyed
+              if (typeof (freshViewport as any).hasBeenDestroyed === 'function' &&
+                (freshViewport as any).hasBeenDestroyed()) {
+                console.debug('Fresh viewport is also destroyed');
+                return;
+              }
+
+              const freshCurrentIndex = freshViewport.getCurrentImageIdIndex();
+              const freshNumberOfSlices = freshViewport.getNumberOfSlices();
 
               if (freshNumberOfSlices > 0) {
                 let freshNewIndex = freshCurrentIndex + direction;
@@ -385,19 +399,19 @@ const OHIFCornerstoneViewport = React.memo(
                   freshNewIndex = 0;
                 }
 
-                csUtils.jumpToSlice(freshEnabledElement.element, {
+                csUtils.jumpToSlice(freshViewport.element, {
                   imageIndex: freshNewIndex,
                   debounceLoading: true,
                 });
               }
-            } catch (retryError) {
-              // If retry also fails, silently fail (viewport is likely being recreated)
-              console.debug('Could not navigate after retry, viewport may be recreating:', retryError);
             }
+          } catch (retryError) {
+            // If retry also fails, silently fail (viewport is likely being recreated)
+            console.debug('Could not navigate after retry:', retryError);
           }
         }
       },
-      [viewportId]
+      [viewportId, cornerstoneViewportService]
     );
 
     // Get cine state to check if video is playing

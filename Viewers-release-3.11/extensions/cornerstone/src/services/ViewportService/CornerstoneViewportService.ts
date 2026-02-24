@@ -753,7 +753,19 @@ class CornerstoneViewportService extends PubSubService implements IViewportServi
       initialImageIndexToUse = this._getInitialImageIndexForViewport(viewportInfo, imageIds) || 0;
     }
 
+    // Check if viewport has been destroyed before calling setStack
+    if (typeof (viewport as any).hasBeenDestroyed === 'function' && (viewport as any).hasBeenDestroyed()) {
+      console.debug('Viewport has been destroyed, skipping setStack');
+      return Promise.resolve();
+    }
+
     return viewport.setStack(imageIds, initialImageIndexToUse).then(() => {
+      // Check again before setting properties (viewport might be destroyed during async operation)
+      if (typeof (viewport as any).hasBeenDestroyed === 'function' && (viewport as any).hasBeenDestroyed()) {
+        console.debug('Viewport was destroyed during setStack, skipping property updates');
+        return;
+      }
+
       viewport.setProperties({ ...properties });
       this.setPresentations(viewport.id, presentations, viewportInfo);
 
@@ -774,6 +786,13 @@ class CornerstoneViewportService extends PubSubService implements IViewportServi
       if (flipHorizontal) {
         viewport.setCamera({ flipHorizontal: true });
       }
+    }).catch((error) => {
+      // Handle errors gracefully if viewport was destroyed
+      if (error?.message?.includes('destroyed') || error?.message?.includes('no longer usable')) {
+        console.debug('Viewport was destroyed during setStack operation');
+        return;
+      }
+      throw error;
     });
   }
 

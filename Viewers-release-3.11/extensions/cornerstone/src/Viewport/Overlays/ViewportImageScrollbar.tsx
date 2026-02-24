@@ -19,6 +19,17 @@ function CornerstoneImageScrollbar({
   const onImageScrollbarChange = (imageIndex, viewportId) => {
     const viewport = cornerstoneViewportService.getCornerstoneViewport(viewportId);
 
+    if (!viewport) {
+      console.debug('Viewport not found, skipping scrollbar change');
+      return;
+    }
+
+    // Check if viewport has been destroyed
+    if (typeof (viewport as any).hasBeenDestroyed === 'function' && (viewport as any).hasBeenDestroyed()) {
+      console.debug('Viewport has been destroyed, skipping scrollbar change');
+      return;
+    }
+
     const { isCineEnabled } = cineService.getState();
 
     if (isCineEnabled) {
@@ -27,10 +38,18 @@ function CornerstoneImageScrollbar({
       cineService.setCine({ id: viewportId, isPlaying: false });
     }
 
-    csUtils.jumpToSlice(viewport.element, {
-      imageIndex,
-      debounceLoading: true,
-    });
+    try {
+      csUtils.jumpToSlice(viewport.element, {
+        imageIndex,
+        debounceLoading: true,
+      });
+    } catch (error) {
+      if (error?.message?.includes('destroyed') || error?.message?.includes('no longer usable')) {
+        console.debug('Viewport was destroyed during scrollbar change');
+        return;
+      }
+      throw error;
+    }
   };
 
   useEffect(() => {
@@ -45,6 +64,12 @@ function CornerstoneImageScrollbar({
     }
 
     try {
+      // Check if viewport has been destroyed before accessing it
+      if (typeof (viewport as any).hasBeenDestroyed === 'function' && (viewport as any).hasBeenDestroyed()) {
+        console.debug('Viewport has been destroyed, skipping image slice data update');
+        return;
+      }
+
       const imageIndex = viewport.getCurrentImageIdIndex();
       const numberOfSlices = viewport.getNumberOfSlices();
 
@@ -53,6 +78,10 @@ function CornerstoneImageScrollbar({
         numberOfSlices,
       });
     } catch (error) {
+      if (error?.message?.includes('destroyed') || error?.message?.includes('no longer usable')) {
+        console.debug('Viewport was destroyed during image slice data update');
+        return;
+      }
       console.warn(error);
     }
   }, [viewportId, viewportData]);
@@ -72,13 +101,28 @@ function CornerstoneImageScrollbar({
       if (!viewport || viewport instanceof VolumeViewport3D) {
         return;
       }
-      const { imageIndex, newImageIdIndex = imageIndex, imageIdIndex } = event.detail;
-      const numberOfSlices = viewport.getNumberOfSlices();
-      // find the index of imageId in the imageIds
-      setImageSliceData({
-        imageIndex: newImageIdIndex ?? imageIdIndex,
-        numberOfSlices,
-      });
+
+      // Check if viewport has been destroyed
+      if (typeof (viewport as any).hasBeenDestroyed === 'function' && (viewport as any).hasBeenDestroyed()) {
+        console.debug('Viewport has been destroyed, skipping index update');
+        return;
+      }
+
+      try {
+        const { imageIndex, newImageIdIndex = imageIndex, imageIdIndex } = event.detail;
+        const numberOfSlices = viewport.getNumberOfSlices();
+        // find the index of imageId in the imageIds
+        setImageSliceData({
+          imageIndex: newImageIdIndex ?? imageIdIndex,
+          numberOfSlices,
+        });
+      } catch (error) {
+        if (error?.message?.includes('destroyed') || error?.message?.includes('no longer usable')) {
+          console.debug('Viewport was destroyed during index update');
+          return;
+        }
+        throw error;
+      }
     };
 
     element.addEventListener(eventId, updateIndex);

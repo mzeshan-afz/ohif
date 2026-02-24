@@ -1,5 +1,5 @@
-import React, { useEffect, useCallback, useRef, useState } from 'react';
-import { Types } from '@ohif/core';
+import React, { useEffect, useCallback, useRef, useState, useMemo } from 'react';
+import { Types, ViewportGridService } from '@ohif/core';
 import { ViewportGrid, ViewportPane, Icons } from '@ohif/ui-next';
 import { useViewportGrid } from '@ohif/ui-next';
 import EmptyViewport from './EmptyViewport';
@@ -17,7 +17,7 @@ function ViewerViewportGrid(props: withAppTypes) {
   const [canNavigateBackwardState, setCanNavigateBackwardState] = useState(false);
   const previousViewportCountRef = useRef(viewports.size);
 
-  const { displaySetService, hangingProtocolService, uiNotificationService, customizationService } =
+  const { displaySetService, hangingProtocolService, uiNotificationService, customizationService, viewportGridService: viewportGridServiceFromManager } =
     servicesManager.services;
 
   const generateLayoutHash = () => `${numCols}-${numRows}`;
@@ -150,7 +150,7 @@ function ViewerViewportGrid(props: withAppTypes) {
       layoutHash.current = generateLayoutHash();
       viewportGridService.publishViewportsReady();
     }
-  }, [viewportGridService, generateLayoutHash]);
+  }, [viewportGridService, generateLayoutHash, viewports]);
 
   const onDropHandler = (viewportId, { displaySetInstanceUID }) => {
     const { viewportGridService } = servicesManager.services;
@@ -375,6 +375,16 @@ function ViewerViewportGrid(props: withAppTypes) {
     previousViewportCountRef.current = currentCount;
   }, [viewports.size, displaySetService, hangingProtocolService, isHangingProtocolLayout, commandsManager]);
 
+  // Create a memoized readiness key that changes when any viewport's readiness changes
+  // This ensures the effect runs when viewports become ready
+  const viewportReadinessKey = useMemo(() => {
+    return Array.from(viewports.values())
+      .filter(v => v.displaySetInstanceUIDs && v.displaySetInstanceUIDs.length > 0)
+      .map(v => `${v.viewportId}:${v.isReady === true ? '1' : '0'}`)
+      .sort()
+      .join('|');
+  }, [viewports]);
+
   // Update navigation bounds when viewports or display sets change
   useEffect(() => {
     const updateNavigationBounds = () => {
@@ -394,14 +404,23 @@ function ViewerViewportGrid(props: withAppTypes) {
         return;
       }
 
+      // Get viewports that have display sets (are actually showing studies)
+      const viewportsWithDisplaySets = Array.from(viewports.values()).filter(
+        viewport => viewport.displaySetInstanceUIDs && viewport.displaySetInstanceUIDs.length > 0
+      );
+
+      if (viewportsWithDisplaySets.length === 0) {
+        setCanNavigateForwardState(false);
+        setCanNavigateBackwardState(false);
+        return;
+      }
+
+      // All viewports are ready, now check navigation bounds
       // Find the min and max indices of currently displayed series
       let minIndex = Infinity;
       let maxIndex = -1;
 
-      viewports.forEach((viewport, viewportId) => {
-        if (!viewport.displaySetInstanceUIDs || viewport.displaySetInstanceUIDs.length === 0) {
-          return;
-        }
+      viewportsWithDisplaySets.forEach(viewport => {
         const currentDisplaySetInstanceUID = viewport.displaySetInstanceUIDs[0];
         const currentDisplaySetIndex = filteredDisplaySets.findIndex(
           displaySet => displaySet.displaySetInstanceUID === currentDisplaySetInstanceUID
@@ -429,15 +448,29 @@ function ViewerViewportGrid(props: withAppTypes) {
     updateNavigationBounds();
 
     // Subscribe to display set changes
-    const subscription = displaySetService.subscribe(
+    const subscriptionDisplaySets = displaySetService.subscribe(
       displaySetService.EVENTS.DISPLAY_SETS_CHANGED,
       updateNavigationBounds
     );
 
+    // Subscribe to grid state changes to catch when viewports become ready
+    // This is important because viewport.isReady changes when onElementEnabled fires
+    // Use the service from servicesManager which has the subscribe method
+    let subscriptionGridState = null;
+    if (viewportGridServiceFromManager && typeof viewportGridServiceFromManager.subscribe === 'function') {
+      subscriptionGridState = viewportGridServiceFromManager.subscribe(
+        ViewportGridService.EVENTS.GRID_STATE_CHANGED,
+        updateNavigationBounds
+      );
+    }
+
     return () => {
-      subscription.unsubscribe();
+      subscriptionDisplaySets.unsubscribe();
+      if (subscriptionGridState) {
+        subscriptionGridState.unsubscribe();
+      }
     };
-  }, [viewports, displaySetService]);
+  }, [viewportReadinessKey, displaySetService, viewportGridServiceFromManager, viewports]);
 
   // Handler for multi-viewport series navigation
   const handleAllViewportsNavigation = useCallback(
@@ -471,11 +504,10 @@ function ViewerViewportGrid(props: withAppTypes) {
           <button
             onClick={() => handleAllViewportsNavigation(-1)}
             disabled={!canNavigateBackwardState}
-            className={`absolute left-4 top-1/2 -translate-y-1/2 z-50 flex items-center justify-center shrink-0 rounded p-2 bg-black/50 ${
-              canNavigateBackwardState
-                ? 'cursor-pointer text-highlight active:text-foreground hover:bg-primary/30'
-                : 'cursor-not-allowed text-gray-500 opacity-50'
-            }`}
+            className={`absolute left-4 top-1/2 -translate-y-1/2 z-50 flex items-center justify-center shrink-0 rounded p-2 bg-black/50 ${canNavigateBackwardState
+              ? 'cursor-pointer text-highlight active:text-foreground hover:bg-primary/30'
+              : 'cursor-not-allowed text-gray-500 opacity-50'
+              }`}
             title="Previous Series (All Viewports)"
           >
             <Icons.ArrowLeftBold className="w-8 h-8 lg:w-10 lg:h-10" />
@@ -485,11 +517,10 @@ function ViewerViewportGrid(props: withAppTypes) {
           <button
             onClick={() => handleAllViewportsNavigation(1)}
             disabled={!canNavigateForwardState}
-            className={`absolute right-4 top-1/2 -translate-y-1/2 z-50 flex items-center justify-center shrink-0 rounded p-2 bg-black/50 ${
-              canNavigateForwardState
-                ? 'cursor-pointer text-highlight active:text-foreground hover:bg-primary/30'
-                : 'cursor-not-allowed text-gray-500 opacity-50'
-            }`}
+            className={`absolute right-4 top-1/2 -translate-y-1/2 z-50 flex items-center justify-center shrink-0 rounded p-2 bg-black/50 ${canNavigateForwardState
+              ? 'cursor-pointer text-highlight active:text-foreground hover:bg-primary/30'
+              : 'cursor-not-allowed text-gray-500 opacity-50'
+              }`}
             title="Next Series (All Viewports)"
           >
             <Icons.ArrowRightBold className="w-8 h-8 lg:w-10 lg:h-10" />
