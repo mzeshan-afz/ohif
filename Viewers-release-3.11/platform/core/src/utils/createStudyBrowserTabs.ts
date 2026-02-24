@@ -17,20 +17,26 @@ export function assignSeriesNumbersToDisplaySets(displaySetService, studyInstanc
     return;
   }
 
+  // Filter out non-image modalities (same as navigation logic)
+  const nonImageModalities = ['SR', 'SEG', 'SM', 'RTSTRUCT', 'RTPLAN', 'RTDOSE'];
+  const imageDisplaySets = activeDisplaySets.filter(
+    ds => !nonImageModalities.includes(ds.Modality)
+  );
+
   // Group display sets by study
   const displaySetsByStudy = new Map();
   studyInstanceUIDs.forEach(studyUID => {
     displaySetsByStudy.set(studyUID, []);
   });
 
-  activeDisplaySets.forEach(displaySet => {
+  imageDisplaySets.forEach(displaySet => {
     const studyUID = displaySet.StudyInstanceUID;
     if (displaySetsByStudy.has(studyUID)) {
       displaySetsByStudy.get(studyUID).push(displaySet);
     }
   });
 
-  // Assign incrementing series numbers per study
+  // Assign incrementing series numbers per study (starting from 1)
   displaySetsByStudy.forEach((studyDisplaySets, studyUID) => {
     // Sort by SeriesInstanceUID for consistent ordering
     studyDisplaySets.sort((a, b) => {
@@ -39,9 +45,11 @@ export function assignSeriesNumbersToDisplaySets(displaySetService, studyInstanc
       return uidA.localeCompare(uidB);
     });
 
+    // Start from 1 for each study
     let seriesIndex = 1;
     studyDisplaySets.forEach(displaySet => {
-      displaySet.uiSeriesNumber = seriesIndex++;
+      (displaySet as any).uiSeriesNumber = seriesIndex;
+      seriesIndex++;
     });
   });
 }
@@ -93,16 +101,28 @@ export function createStudyBrowserTabs(
 
     // Assign incrementing series numbers per study (UI only)
     // Store the UI series number on the actual display set for use in viewport overlays
+    // Note: assignSeriesNumbersToDisplaySets should have already set uiSeriesNumber,
+    // but we'll ensure it's set correctly here as well for consistency
+    // Filter out non-image modalities to match the assignment logic
+    const nonImageModalities = ['SR', 'SEG', 'SM', 'RTSTRUCT', 'RTPLAN', 'RTDOSE'];
+    const imageDisplaySets = sortedDisplaySets.filter(ds => {
+      const displaySet = displaySetService.getDisplaySetByUID(ds.displaySetInstanceUID);
+      return displaySet && !nonImageModalities.includes(displaySet.Modality);
+    });
+
     let seriesIndex = 1;
-    const displaySetsWithSeriesNumbers = sortedDisplaySets.map(ds => {
+    const displaySetsWithSeriesNumbers = imageDisplaySets.map(ds => {
       const displaySet = displaySetService.getDisplaySetByUID(ds.displaySetInstanceUID);
       if (displaySet) {
         // Store UI series number on the display set for overlay access
-        displaySet.uiSeriesNumber = seriesIndex;
+        // Use the current seriesIndex value (before increment)
+        (displaySet as any).uiSeriesNumber = seriesIndex;
       }
+      const currentSeriesNumber = seriesIndex;
+      seriesIndex++;
       return {
         ...ds,
-        seriesNumber: seriesIndex++,
+        seriesNumber: currentSeriesNumber,
       };
     });
 
