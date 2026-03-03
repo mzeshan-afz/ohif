@@ -10,7 +10,6 @@ export const ArrowLeftBold = (props: IconProps) => (
     xmlns="http://www.w3.org/2000/svg"
     {...props}
   >
-    <title>arrow-left</title>
     <g
       id="Icons"
       stroke="none"
