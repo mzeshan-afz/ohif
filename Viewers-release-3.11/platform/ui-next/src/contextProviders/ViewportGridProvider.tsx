@@ -37,6 +37,7 @@ const DEFAULT_STATE: AppTypes.ViewportGrid.State = {
         viewportId: 'default',
         displaySetInstanceUIDs: [],
         isReady: false,
+        allImagesShown: false,
         viewportOptions: {
           viewportId: 'default',
         },
@@ -120,7 +121,9 @@ interface ViewportGridApi {
   set: (gridLayoutState: Partial<AppTypes.ViewportGrid.State>) => void;
   getNumViewportPanes: () => number;
   setViewportIsReady: (viewportId: string, isReady: boolean) => void;
+  setViewportAllImagesShown: (viewportId: string, allImagesShown: boolean) => void;
   getGridViewportsReady: () => boolean;
+  getAllViewportsImagesShown: () => boolean;
   getActiveViewportOptionByKey: (key: string) => any;
   setViewportGridSizeChanged: (props: any) => void;
   publishViewportsReady: () => void;
@@ -359,6 +362,25 @@ export function ViewportGridProvider({ children, service }: ViewportGridProvider
         };
       }
 
+      case 'VIEWPORT_ALL_IMAGES_SHOWN': {
+        const { viewportId, allImagesShown } = action.payload;
+        const viewports = new Map(state.viewports);
+        const viewport = viewports.get(viewportId);
+        if (!viewport) {
+          return;
+        }
+
+        viewports.set(viewportId, {
+          ...viewport,
+          allImagesShown,
+        });
+
+        return {
+          ...state,
+          viewports,
+        };
+      }
+
       default:
         return action.payload;
     }
@@ -402,10 +424,34 @@ export function ViewportGridProvider({ children, service }: ViewportGridProvider
     [dispatch, viewportGridState]
   );
 
+  const setViewportAllImagesShown = useCallback(
+    (viewportId, allImagesShown) => {
+      dispatch({
+        type: 'VIEWPORT_ALL_IMAGES_SHOWN',
+        payload: {
+          viewportId,
+          allImagesShown,
+        },
+      });
+    },
+    [dispatch]
+  );
+
   const getGridViewportsReady = useCallback(() => {
     const { viewports } = viewportGridState;
     const readyViewports = Array.from(viewports.values()).filter(viewport => viewport.isReady);
     return readyViewports.length === viewports.size;
+  }, [viewportGridState]);
+
+  const getAllViewportsImagesShown = useCallback(() => {
+    const { viewports } = viewportGridState;
+    const viewportsWithDisplaySets = Array.from(viewports.values()).filter(
+      viewport => viewport.displaySetInstanceUIDs && viewport.displaySetInstanceUIDs.length > 0
+    );
+    if (viewportsWithDisplaySets.length === 0) {
+      return true; // No viewports with display sets, consider as ready
+    }
+    return viewportsWithDisplaySets.every(viewport => viewport.allImagesShown === true);
   }, [viewportGridState]);
 
   const setLayout = useCallback(
@@ -483,8 +529,10 @@ export function ViewportGridProvider({ children, service }: ViewportGridProvider
         set,
         getNumViewportPanes,
         setViewportIsReady,
+        setViewportAllImagesShown,
         getViewportState,
         getGridViewportsReady,
+        getAllViewportsImagesShown,
       });
     }
   }, [
@@ -497,7 +545,9 @@ export function ViewportGridProvider({ children, service }: ViewportGridProvider
     set,
     getNumViewportPanes,
     setViewportIsReady,
+    setViewportAllImagesShown,
     getGridViewportsReady,
+    getAllViewportsImagesShown,
     getViewportState,
   ]);
 
@@ -515,7 +565,9 @@ export function ViewportGridProvider({ children, service }: ViewportGridProvider
     set: gridLayoutState => service.setState(gridLayoutState), // run it through the service itself since we want to publish events
     getNumViewportPanes,
     setViewportIsReady,
+    setViewportAllImagesShown,
     getGridViewportsReady,
+    getAllViewportsImagesShown,
     getActiveViewportOptionByKey,
     setViewportGridSizeChanged: props => service.setViewportGridSizeChanged(props),
     publishViewportsReady: () => service.publishViewportsReady(),

@@ -375,12 +375,12 @@ function ViewerViewportGrid(props: withAppTypes) {
     previousViewportCountRef.current = currentCount;
   }, [viewports.size, displaySetService, hangingProtocolService, isHangingProtocolLayout, commandsManager]);
 
-  // Create a memoized readiness key that changes when any viewport's readiness changes
-  // This ensures the effect runs when viewports become ready
+  // Create a memoized readiness key that changes when any viewport's readiness or image completion changes
+  // This ensures the effect runs when viewports become ready or complete their image loops
   const viewportReadinessKey = useMemo(() => {
     return Array.from(viewports.values())
       .filter(v => v.displaySetInstanceUIDs && v.displaySetInstanceUIDs.length > 0)
-      .map(v => `${v.viewportId}:${v.isReady === true ? '1' : '0'}`)
+      .map(v => `${v.viewportId}:${v.isReady === true ? '1' : '0'}:${v.allImagesShown === true ? '1' : '0'}`)
       .sort()
       .join('|');
   }, [viewports]);
@@ -415,7 +415,17 @@ function ViewerViewportGrid(props: withAppTypes) {
         return;
       }
 
-      // All viewports are ready, now check navigation bounds
+      // Check if all viewports with display sets have completed their image loops
+      const allViewportsImagesShown = viewportGridService.getAllViewportsImagesShown();
+
+      if (!allViewportsImagesShown) {
+        // Disable navigation until all viewports have shown all their images
+        setCanNavigateForwardState(false);
+        setCanNavigateBackwardState(false);
+        return;
+      }
+
+      // All viewports are ready and have shown all images, now check navigation bounds
       // Find the min and max indices of currently displayed series
       let minIndex = Infinity;
       let maxIndex = -1;

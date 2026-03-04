@@ -23,6 +23,28 @@ const STACK = 'stack';
 // Cache for viewport dimensions, persists across component remounts
 const viewportDimensions = new Map<string, { width: number; height: number }>();
 
+/**
+ * Check if a display set is a true cine series (video/multi-frame)
+ */
+function isTrueCineSeries(displaySet: any): boolean {
+  if (!displaySet) return false;
+
+  if (displaySet.isMultiFrame === true) return true;
+  if (displaySet.isDynamicVolume === true) return true;
+
+  const instances = displaySet.instances || [];
+  const numImageFrames = displaySet.numImageFrames || 0;
+
+  if (instances.length === 1 && numImageFrames > 1) {
+    const instance = instances[0];
+    if (instance && (instance.NumberOfFrames > 1 || numImageFrames > 1)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 // Todo: This should be done with expose of internal API similar to react-vtkjs-viewport
 // Then we don't need to worry about the re-renders if the props change.
 const OHIFCornerstoneViewport = React.memo(
@@ -83,6 +105,13 @@ const OHIFCornerstoneViewport = React.memo(
     const elementRef = useRef() as React.MutableRefObject<HTMLDivElement>;
     const viewportRef = useViewportRef(viewportId);
 
+    // Track which images have been shown (for single viewport loop completion)
+    const shownImageIndicesRef = useRef<Set<number>>(new Set());
+    const [allImagesShown, setAllImagesShown] = useState(false);
+    const totalImagesRef = useRef<number>(0);
+    // Track which display set UIDs have already completed their loop
+    const completedSeriesRef = useRef<Set<string>>(new Set());
+
     const {
       displaySetService,
       toolbarService,
@@ -93,6 +122,7 @@ const OHIFCornerstoneViewport = React.memo(
       cornerstoneCacheService,
       customizationService,
       measurementService,
+      viewportGridService,
     } = servicesManager.services;
 
     const { commandsManager } = useSystem();
@@ -305,14 +335,146 @@ const OHIFCornerstoneViewport = React.memo(
       loadViewportData();
     }, [viewportOptions, displaySets, dataSource]);
 
+    // Reset image tracking when display sets change (for all viewports loop completion)
+    useEffect(() => {
+      if (displaySets.length > 0) {
+        // Get the current display set
+        const currentDisplaySet = displaySets[0];
+        const currentDisplaySetUID = currentDisplaySet?.displaySetInstanceUID;
+
+        if (currentDisplaySetUID) {
+          // Check if this is a true cine series (video/multi-frame)
+          const isCine = isTrueCineSeries(currentDisplaySet);
+
+          if (!isCine) {
+            // Not a true cine series - enable navigation immediately (no loop to wait for)
+            setAllImagesShown(true);
+            viewportGridService.setViewportAllImagesShown(viewportId, true);
+            shownImageIndicesRef.current.clear();
+            totalImagesRef.current = 0;
+            return;
+          }
+
+          // It's a true cine series - check if already completed
+          const viewportSeriesKey = `${viewportId}:${currentDisplaySetUID}`;
+
+          if (completedSeriesRef.current.has(viewportSeriesKey)) {
+            // This is a previously seen cine series for this viewport - enable immediately
+            setAllImagesShown(true);
+            viewportGridService.setViewportAllImagesShown(viewportId, true);
+            shownImageIndicesRef.current.clear();
+            totalImagesRef.current = 0;
+          } else {
+            // This is a new cine series for this viewport - reset tracking and disable
+            shownImageIndicesRef.current.clear();
+            setAllImagesShown(false);
+            viewportGridService.setViewportAllImagesShown(viewportId, false);
+            totalImagesRef.current = 0;
+          }
+        }
+      }
+    }, [displaySets, viewportId, servicesManager, viewportGridService]);
+
+    // Track image rendering to detect when all images have been shown (for all viewports, only for true cine series)
+    useEffect(() => {
+      if (!enabledVPElement || displaySets.length === 0) {
+        return;
+      }
+
+      // Check if this is a true cine series - only track loops for cine series
+      const currentDisplaySet = displaySets[0];
+      const isCine = isTrueCineSeries(currentDisplaySet);
+
+      if (!isCine) {
+        // Not a cine series - don't track image rendering
+        return;
+      }
+
+      const element = enabledVPElement;
+
+      const handleImageRendered = (event: any) => {
+        try {
+          const viewport = cornerstoneViewportService.getCornerstoneViewport(viewportId);
+          if (!viewport) {
+            return;
+          }
+
+          // Check if viewport has been destroyed
+          if (typeof (viewport as any).hasBeenDestroyed === 'function' && (viewport as any).hasBeenDestroyed()) {
+            return;
+          }
+
+          const numberOfSlices = viewport.getNumberOfSlices();
+          if (numberOfSlices === 0) {
+            return;
+          }
+
+          // Update total images count
+          totalImagesRef.current = numberOfSlices;
+
+          // Get current image index
+          let currentImageIndex: number;
+          if (event.detail?.imageIndex !== undefined) {
+            currentImageIndex = event.detail.imageIndex;
+          } else if (event.detail?.newImageIdIndex !== undefined) {
+            currentImageIndex = event.detail.newImageIdIndex;
+          } else if (event.detail?.imageIdIndex !== undefined) {
+            currentImageIndex = event.detail.imageIdIndex;
+          } else {
+            currentImageIndex = viewport.getCurrentImageIdIndex();
+          }
+
+          // Track this image as shown
+          shownImageIndicesRef.current.add(currentImageIndex);
+
+          // Check if all images have been shown
+          if (shownImageIndicesRef.current.size >= numberOfSlices) {
+            setAllImagesShown(true);
+            viewportGridService.setViewportAllImagesShown(viewportId, true);
+
+            // Mark this viewport+series combination as completed (so buttons won't be disabled if we navigate back to it)
+            if (displaySets.length > 0) {
+              const currentDisplaySetUID = displaySets[0]?.displaySetInstanceUID;
+              if (currentDisplaySetUID) {
+                const viewportSeriesKey = `${viewportId}:${currentDisplaySetUID}`;
+                completedSeriesRef.current.add(viewportSeriesKey);
+              }
+            }
+          }
+        } catch (error) {
+          // Silently handle errors (viewport might be destroyed)
+          if (error?.message?.includes('destroyed') || error?.message?.includes('no longer usable')) {
+            return;
+          }
+        }
+      };
+
+      // Listen to both STACK_NEW_IMAGE and IMAGE_RENDERED events
+      element.addEventListener(Enums.Events.STACK_NEW_IMAGE, handleImageRendered);
+      element.addEventListener(Enums.Events.IMAGE_RENDERED, handleImageRendered);
+
+      return () => {
+        element.removeEventListener(Enums.Events.STACK_NEW_IMAGE, handleImageRendered);
+        element.removeEventListener(Enums.Events.IMAGE_RENDERED, handleImageRendered);
+      };
+    }, [viewportId, displaySets, enabledVPElement, servicesManager, cornerstoneViewportService]);
+
     const Notification = customizationService.getCustomization('ui.notificationComponent');
 
     // Handler for series navigation buttons (mobile only)
     const handleSeriesNavigation = useCallback(
       (direction: number) => {
+        // For single viewport, only allow navigation if all images have been shown
+        const { viewports } = servicesManager.services.viewportGridService.getState();
+        const isSingleViewport = viewports.size === 1;
+
+        if (isSingleViewport && !allImagesShown) {
+          return; // Prevent navigation until all images are shown
+        }
+
         commandsManager.runCommand('updateViewportDisplaySet', { direction });
       },
-      [commandsManager]
+      [commandsManager, allImagesShown, servicesManager]
     );
 
     // Handler for image navigation (previous/next image in series)
@@ -456,8 +618,12 @@ const OHIFCornerstoneViewport = React.memo(
               {/* Previous Series Button */}
               <button
                 onClick={() => handleSeriesNavigation(-1)}
-                className="cursor-pointer flex items-center justify-center shrink-0 text-highlight active:text-foreground hover:bg-primary/30 rounded p-2"
-                title="Previous Series"
+                disabled={!allImagesShown}
+                className={`flex items-center justify-center shrink-0 rounded p-2 ${allImagesShown
+                  ? 'cursor-pointer text-highlight active:text-foreground hover:bg-primary/30'
+                  : 'cursor-not-allowed text-gray-500 opacity-50'
+                  }`}
+                title={allImagesShown ? 'Previous Series' : 'Waiting for all images to load...'}
               >
                 <Icons.ArrowLeftBold className="w-8 h-8 lg:w-10 lg:h-10" />
               </button>
@@ -465,8 +631,12 @@ const OHIFCornerstoneViewport = React.memo(
               {/* Next Series Button */}
               <button
                 onClick={() => handleSeriesNavigation(1)}
-                className="cursor-pointer flex items-center justify-center shrink-0 text-highlight active:text-foreground hover:bg-primary/30 rounded p-2"
-                title="Next Series"
+                disabled={!allImagesShown}
+                className={`flex items-center justify-center shrink-0 rounded p-2 ${allImagesShown
+                  ? 'cursor-pointer text-highlight active:text-foreground hover:bg-primary/30'
+                  : 'cursor-not-allowed text-gray-500 opacity-50'
+                  }`}
+                title={allImagesShown ? 'Next Series' : 'Waiting for all images to load...'}
               >
                 <Icons.ArrowRightBold className="w-8 h-8 lg:w-10 lg:h-10" />
               </button>

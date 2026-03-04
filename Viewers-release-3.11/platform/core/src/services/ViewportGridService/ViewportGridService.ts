@@ -100,7 +100,9 @@ class ViewportGridService extends PubSubService {
     set: setImplementation,
     getNumViewportPanes: getNumViewportPanesImplementation,
     setViewportIsReady: setViewportIsReadyImplementation,
+    setViewportAllImagesShown: setViewportAllImagesShownImplementation,
     getViewportState: getViewportStateImplementation,
+    getAllViewportsImagesShown: getAllViewportsImagesShownImplementation,
   }): void {
     if (getViewportStateImplementation) {
       this.serviceImplementation._getViewportState = getViewportStateImplementation;
@@ -133,6 +135,12 @@ class ViewportGridService extends PubSubService {
 
     if (setViewportIsReadyImplementation) {
       this.serviceImplementation._setViewportIsReady = setViewportIsReadyImplementation;
+    }
+    if (setViewportAllImagesShownImplementation) {
+      this.serviceImplementation._setViewportAllImagesShown = setViewportAllImagesShownImplementation;
+    }
+    if (getAllViewportsImagesShownImplementation) {
+      this.serviceImplementation._getAllViewportsImagesShown = getAllViewportsImagesShownImplementation;
     }
   }
 
@@ -168,6 +176,14 @@ class ViewportGridService extends PubSubService {
 
   public setViewportIsReady(viewportId, callback) {
     this.serviceImplementation._setViewportIsReady(viewportId, callback);
+  }
+
+  public setViewportAllImagesShown(viewportId, allImagesShown) {
+    this.serviceImplementation._setViewportAllImagesShown(viewportId, allImagesShown);
+  }
+
+  public getAllViewportsImagesShown() {
+    return this.serviceImplementation._getAllViewportsImagesShown();
   }
 
   public getActiveViewportId() {
