@@ -5,7 +5,7 @@ import PropTypes from 'prop-types';
 import i18n from '@ohif/i18n';
 import { I18nextProvider } from 'react-i18next';
 import { BrowserRouter } from 'react-router-dom';
-
+import { cache } from '@cornerstonejs/core';
 import Compose from './routes/Mode/Compose';
 import {
   ExtensionManager,
@@ -73,6 +73,79 @@ function App({
     run();
   }, []);
 
+  // Listen for postMessage from iframe parent to clear cache and cleanup
+  // This hook must be called before any early returns to maintain hook order
+  useEffect(() => {
+    // Only set up listener if services are initialized
+    if (!init) {
+      return;
+    }
+
+    const {
+      cornerstoneViewportService,
+      viewportGridService,
+      cineService,
+    } = init.servicesManager.services;
+
+    const handlePostMessage = async (event: MessageEvent) => {
+      console.log('handlePostMessage', event);
+
+      // Listen for cleanup event from iframe parent
+      if (event.data && event.data.type === 'CLEAR_CACHE_AND_CLEANUP') {
+        try {
+          // Stop all cine playback first
+          if (cineService) {
+            const { cines } = cineService.getState();
+            Object.keys(cines || {}).forEach(viewportId => {
+              try {
+                cineService.stopClip(null, { viewportId });
+                cineService.setCine({ id: viewportId, isPlaying: false });
+              } catch (e) {
+                // Ignore errors for individual viewports
+              }
+            });
+          }
+
+          cineService?.stopAllClips?.();
+
+          // Purge all loaded images
+          cache.purgeCache();
+
+          // Destroy all viewports (if using Cornerstone viewport manager)
+          cornerstoneViewportService?.destroy();
+          viewportGridService?.reset();
+
+          console.log('Cache cleared inside iframe.');
+
+          // Clear Cornerstone cache and destroy rendering engine
+          if (cornerstoneViewportService) {
+            cornerstoneViewportService.destroy();
+          }
+
+          // Clear viewport grid state
+          if (viewportGridService) {
+            viewportGridService.reset();
+          }
+
+          // Force garbage collection hint (browser may or may not honor this)
+          if (window.gc) {
+            window.gc();
+          }
+
+          console.log('Cache cleared and cleanup completed');
+        } catch (error) {
+          console.error('Error during cache cleanup:', error);
+        }
+      }
+    };
+
+    window.addEventListener('message', handlePostMessage);
+
+    return () => {
+      window.removeEventListener('message', handlePostMessage);
+    };
+  }, [init]);
+
   if (!init) {
     return null;
   }
@@ -106,6 +179,7 @@ function App({
     userAuthenticationService,
     uiNotificationService,
     customizationService,
+    cornerstoneViewportService,
   } = servicesManager.services;
 
   const providers = [
