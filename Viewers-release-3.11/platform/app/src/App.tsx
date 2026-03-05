@@ -66,6 +66,58 @@ function App({
 }) {
   const [init, setInit] = useState(null);
   useEffect(() => {
+    if (window.self === window.top) {
+      document.body.innerHTML = "Unauthorized access";
+      document.title = "Unauthorized access"
+      document.body.style.backgroundColor = 'red';
+      document.body.style.color = 'white';
+      document.body.style.fontSize = '20px';
+      document.body.style.fontWeight = 'bold';
+      document.body.style.textAlign = 'center';
+      document.body.style.padding = '20px';
+      document.body.style.borderRadius = '10px';
+      document.body.style.border = '1px solid white';
+      document.body.style.boxShadow = '0 0 10px 0 rgba(0, 0, 0, 0.5)';
+      console.log('Unauthorized access');
+
+    }
+    // const params = new URLSearchParams(window.location.search);
+    // console.log('params', params);
+    // const token = params.get("token");
+    // console.log('token', token);
+    // if (!token) {
+    //   document.body.innerHTML = "Unauthorized";
+    // }
+
+    // const checkAuthorized = async () => {
+    //   try {
+    //     const checkAuthorized = await fetch("http://localhost:5007/api/authenticat-token", {
+    //       headers: {
+    //         'Authorization': `Bearer ${token}`,
+    //       },
+    //     });
+    //     console.log('checkAuthorized', checkAuthorized);
+    //     if (checkAuthorized.status !== 200) {
+    //       document.body.innerHTML = "Unauthorized access";
+    //       document.title = "Unauthorized access"
+    //       document.body.style.backgroundColor = 'red';
+    //       document.body.style.color = 'white';
+    //       document.body.style.fontSize = '20px';
+    //       document.body.style.fontWeight = 'bold';
+    //       document.body.style.textAlign = 'center';
+    //       document.body.style.padding = '20px';
+    //       document.body.style.borderRadius = '10px';
+    //       document.body.style.border = '1px solid white';
+    //       document.body.style.boxShadow = '0 0 10px 0 rgba(0, 0, 0, 0.5)';
+    //       console.log('Unauthorized access');
+    //       return
+    //     }
+    //   } catch (error) {
+    //     console.error('Error checking authorization:', error);
+
+    //   }
+    // }
+    // checkAuthorized();
     const run = async () => {
       appInit(config, defaultExtensions, defaultModes).then(setInit).catch(console.error);
     };
@@ -80,6 +132,7 @@ function App({
     if (!init) {
       return;
     }
+
 
     const {
       cornerstoneViewportService,
