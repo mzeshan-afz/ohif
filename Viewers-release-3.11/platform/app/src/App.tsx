@@ -72,21 +72,21 @@ function App({
       navigator.userAgent.includes("ReactNative");
 
 
-    if (window.self === window.top && !isWebView) {
-      document.body.innerHTML = "Unauthorized access";
-      document.title = "Unauthorized access"
-      document.body.style.backgroundColor = 'red';
-      document.body.style.color = 'white';
-      document.body.style.fontSize = '20px';
-      document.body.style.fontWeight = 'bold';
-      document.body.style.textAlign = 'center';
-      document.body.style.padding = '20px';
-      document.body.style.borderRadius = '10px';
-      document.body.style.border = '1px solid white';
-      document.body.style.boxShadow = '0 0 10px 0 rgba(0, 0, 0, 0.5)';
-      console.log('Unauthorized access');
+    // if (window.self === window.top && !isWebView) {
+    //   document.body.innerHTML = "Unauthorized access";
+    //   document.title = "Unauthorized access"
+    //   document.body.style.backgroundColor = 'red';
+    //   document.body.style.color = 'white';
+    //   document.body.style.fontSize = '20px';
+    //   document.body.style.fontWeight = 'bold';
+    //   document.body.style.textAlign = 'center';
+    //   document.body.style.padding = '20px';
+    //   document.body.style.borderRadius = '10px';
+    //   document.body.style.border = '1px solid white';
+    //   document.body.style.boxShadow = '0 0 10px 0 rgba(0, 0, 0, 0.5)';
+    //   console.log('Unauthorized access');
 
-    }
+    // }
     // const params = new URLSearchParams(window.location.search);
     // console.log('params', params);
     // const token = params.get("token");

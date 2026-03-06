@@ -27,6 +27,7 @@ type LayoutSelectorContextType = {
   setIsOpen: (isOpen: boolean) => void;
   onSelection: (commandOptions: LayoutCommandOptions) => void;
   onSelectionPreset: (commandOptions: LayoutCommandOptions) => void;
+  disabled?: boolean;
 };
 
 const LayoutSelectorContext = createContext<LayoutSelectorContextType | undefined>(undefined);
@@ -48,6 +49,7 @@ type LayoutSelectorProps = {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   tooltipDisabled?: boolean; // Keep this prop for now as it might be used elsewhere
+  disabled?: boolean; // Add disabled prop to prevent opening
 };
 
 const LayoutSelector = ({
@@ -58,47 +60,65 @@ const LayoutSelector = ({
   open,
   onOpenChange,
   tooltipDisabled,
+  disabled = false,
 }: LayoutSelectorProps) => {
   const [isOpenInternal, setIsOpenInternal] = useState(false);
 
   const isControlled = open !== undefined;
   const isOpen = isControlled ? open : isOpenInternal;
-  const setIsOpen = isControlled ? onOpenChange! : setIsOpenInternal;
+  const handleOpenChange = useCallback((newOpen: boolean) => {
+    // Prevent opening if disabled
+    if (newOpen && disabled) {
+      return;
+    }
+    if (isControlled && onOpenChange) {
+      onOpenChange(newOpen);
+    } else {
+      setIsOpenInternal(newOpen);
+    }
+  }, [disabled, isControlled, onOpenChange]);
 
   const handleSelection = useCallback(
     (commandOptions: LayoutCommandOptions) => {
+      if (disabled) {
+        return;
+      }
       onSelection(commandOptions);
       if (onSelectionChange) {
         onSelectionChange(commandOptions, false);
       }
-      setIsOpen(false);
+      handleOpenChange(false);
     },
-    [onSelection, onSelectionChange, setIsOpen]
+    [onSelection, onSelectionChange, handleOpenChange, disabled]
   );
 
   const handlePresetSelection = useCallback(
     (commandOptions: LayoutCommandOptions) => {
+      if (disabled) {
+        return;
+      }
       onSelectionPreset(commandOptions);
       if (onSelectionChange) {
         onSelectionChange(commandOptions, true);
       }
-      setIsOpen(false);
+      handleOpenChange(false);
     },
-    [onSelectionPreset, onSelectionChange, setIsOpen]
+    [onSelectionPreset, onSelectionChange, handleOpenChange, disabled]
   );
 
   return (
     <LayoutSelectorContext.Provider
       value={{
         isOpen,
-        setIsOpen,
+        setIsOpen: handleOpenChange,
         onSelection: handleSelection,
         onSelectionPreset: handlePresetSelection,
+        disabled,
       }}
     >
       <Popover
         open={isOpen}
-        onOpenChange={setIsOpen}
+        onOpenChange={handleOpenChange}
       >
         {children}
       </Popover>
@@ -122,9 +142,17 @@ const Trigger = ({
   disabled = false,
   disabledText,
 }: TriggerProps) => {
-  const { isOpen } = useLayoutSelector();
+  const { isOpen, setIsOpen } = useLayoutSelector();
 
   const hasTooltip = tooltip || (disabled && disabledText);
+
+  const handleClick = (e: React.MouseEvent) => {
+    if (disabled) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+  };
 
   const button = (
     <Button
@@ -141,6 +169,7 @@ const Trigger = ({
       size="icon"
       aria-label={tooltip}
       disabled={disabled}
+      onClick={handleClick}
     >
       <Icons.ByName
         name="tool-layout"
@@ -155,6 +184,7 @@ const Trigger = ({
       <PopoverTrigger
         asChild
         className={className}
+        disabled={disabled}
       >
         {children}
       </PopoverTrigger>
@@ -165,7 +195,11 @@ const Trigger = ({
     return (
       <Tooltip>
         <TooltipTrigger asChild>
-          <PopoverTrigger asChild>
+          <PopoverTrigger
+            asChild
+            disabled={disabled}
+            onClick={handleClick}
+          >
             <span data-cy="layout-button">{button}</span>
           </PopoverTrigger>
         </TooltipTrigger>
@@ -178,7 +212,11 @@ const Trigger = ({
   }
 
   return (
-    <PopoverTrigger asChild>
+    <PopoverTrigger
+      asChild
+      disabled={disabled}
+      onClick={handleClick}
+    >
       <span data-cy="layout-button">{button}</span>
     </PopoverTrigger>
   );

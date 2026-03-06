@@ -145,9 +145,12 @@ interface ViewportGridProviderProps {
 
 export function ViewportGridProvider({ children, service }: ViewportGridProviderProps) {
   const viewportGridReducer = (state: AppTypes.ViewportGrid.State, action) => {
+    // Ensure state is always defined, fallback to DEFAULT_STATE if not
+    const currentState = state || DEFAULT_STATE;
+
     switch (action.type) {
       case 'SET_ACTIVE_VIEWPORT_ID': {
-        return { ...state, ...{ activeViewportId: action.payload } };
+        return { ...currentState, ...{ activeViewportId: action.payload } };
       }
 
       /**
@@ -158,7 +161,7 @@ export function ViewportGridProvider({ children, service }: ViewportGridProvider
        */
       case 'SET_DISPLAYSETS_FOR_VIEWPORTS': {
         const { payload } = action;
-        const viewports = new Map(state.viewports);
+        const viewports = new Map(currentState.viewports || new Map());
 
         payload.forEach(updatedViewport => {
           const { viewportId, displaySetInstanceUIDs } = updatedViewport;
@@ -189,7 +192,7 @@ export function ViewportGridProvider({ children, service }: ViewportGridProvider
           const displaySetOptions = updatedViewport?.displaySetOptions || [];
           if (!displaySetOptions.length) {
             // Copy all the display set options, assuming a full set of displaySet UID's is provided.
-            if (state.isHangingProtocolLayout) {
+            if (currentState.isHangingProtocolLayout) {
               displaySetOptions.push(...(previousViewport.displaySetOptions || []));
             }
             if (!displaySetOptions.length) {
@@ -202,7 +205,7 @@ export function ViewportGridProvider({ children, service }: ViewportGridProvider
           // inherit the hanging protocol layout options, only when
           // the viewport options is not provided (e.g., when drag and drop)
           // otherwise, programmatically set options should be preserved
-          if (!updatedViewport.viewportOptions && !state.isHangingProtocolLayout) {
+          if (!updatedViewport.viewportOptions && !currentState.isHangingProtocolLayout) {
             viewportOptions = {
               viewportId: viewportOptions.viewportId,
             };
@@ -227,7 +230,7 @@ export function ViewportGridProvider({ children, service }: ViewportGridProvider
           });
         });
 
-        return { ...state, viewports };
+        return { ...currentState, viewports };
       }
       case 'SET_LAYOUT': {
         const {
@@ -316,13 +319,13 @@ export function ViewportGridProvider({ children, service }: ViewportGridProvider
         }
 
         activeViewportIdToSet =
-          activeViewportIdToSet ?? determineActiveViewportId(state, viewports);
+          activeViewportIdToSet ?? determineActiveViewportId(currentState, viewports);
 
         const ret = {
-          ...state,
+          ...currentState,
           activeViewportId: activeViewportIdToSet,
           layout: {
-            ...state.layout,
+            ...currentState.layout,
             numCols,
             numRows,
             layoutType,
@@ -338,17 +341,17 @@ export function ViewportGridProvider({ children, service }: ViewportGridProvider
 
       case 'SET': {
         return {
-          ...state,
+          ...currentState,
           ...action.payload,
         };
       }
 
       case 'VIEWPORT_IS_READY': {
         const { viewportId, isReady } = action.payload;
-        const viewports = new Map(state.viewports);
+        const viewports = new Map(currentState.viewports || new Map());
         const viewport = viewports.get(viewportId);
         if (!viewport) {
-          return;
+          return currentState;
         }
 
         viewports.set(viewportId, {
@@ -357,17 +360,17 @@ export function ViewportGridProvider({ children, service }: ViewportGridProvider
         });
 
         return {
-          ...state,
+          ...currentState,
           viewports,
         };
       }
 
       case 'VIEWPORT_ALL_IMAGES_SHOWN': {
         const { viewportId, allImagesShown } = action.payload;
-        const viewports = new Map(state.viewports);
+        const viewports = new Map(currentState.viewports || new Map());
         const viewport = viewports.get(viewportId);
         if (!viewport) {
-          return;
+          return currentState;
         }
 
         viewports.set(viewportId, {
@@ -376,13 +379,17 @@ export function ViewportGridProvider({ children, service }: ViewportGridProvider
         });
 
         return {
-          ...state,
+          ...currentState,
           viewports,
         };
       }
 
       default:
-        return action.payload;
+        // If action.payload is a valid state object, use it; otherwise return current state
+        if (action.payload && typeof action.payload === 'object' && action.payload.viewports) {
+          return action.payload;
+        }
+        return currentState;
     }
   };
 

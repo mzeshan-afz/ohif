@@ -47,6 +47,9 @@ class ViewportGridService extends PubSubService {
 
   public getPresentationId(id: string, viewportId: string): string | null {
     const state = this.getState();
+    if (!state) {
+      return null;
+    }
     const viewport = state.viewports.get(viewportId);
     return this._getPresentationId(id, {
       viewport,
@@ -153,7 +156,11 @@ class ViewportGridService extends PubSubService {
   }
 
   public setActiveViewportId(id: string) {
-    if (id === this.getActiveViewportId()) {
+    const currentActiveViewportId = this.getActiveViewportId();
+    if (id === currentActiveViewportId) {
+      return;
+    }
+    if (!this.serviceImplementation._setActiveViewport) {
       return;
     }
     this.serviceImplementation._setActiveViewport(id);
@@ -188,7 +195,7 @@ class ViewportGridService extends PubSubService {
 
   public getActiveViewportId() {
     const state = this.getState();
-    return state.activeViewportId;
+    return state?.activeViewportId;
   }
 
   public setViewportGridSizeChanged() {
@@ -244,6 +251,9 @@ class ViewportGridService extends PubSubService {
    */
   public getDisplaySetsUIDsForViewport(viewportId: string) {
     const state = this.getState();
+    if (!state) {
+      return undefined;
+    }
     const viewport = state.viewports.get(viewportId);
     return viewport?.displaySetInstanceUIDs;
   }

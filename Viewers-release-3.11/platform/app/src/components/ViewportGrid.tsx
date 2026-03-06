@@ -16,6 +16,8 @@ function ViewerViewportGrid(props: withAppTypes) {
   const [canNavigateForwardState, setCanNavigateForwardState] = useState(false);
   const [canNavigateBackwardState, setCanNavigateBackwardState] = useState(false);
   const previousViewportCountRef = useRef(viewports.size);
+  // Track last loading state for multi-viewports to notify parent iframe
+  const lastMultiViewportImagesShownRef = useRef<boolean | null>(null);
 
   const { displaySetService, hangingProtocolService, uiNotificationService, customizationService, viewportGridService: viewportGridServiceFromManager } =
     servicesManager.services;
@@ -391,6 +393,8 @@ function ViewerViewportGrid(props: withAppTypes) {
       if (viewports.size <= 1) {
         setCanNavigateForwardState(false);
         setCanNavigateBackwardState(false);
+        // Reset tracking when not in multi-viewport mode
+        lastMultiViewportImagesShownRef.current = null;
         return;
       }
 
@@ -417,6 +421,23 @@ function ViewerViewportGrid(props: withAppTypes) {
 
       // Check if all viewports with display sets have completed their image loops
       const allViewportsImagesShown = viewportGridService.getAllViewportsImagesShown();
+
+      // Notify parent (when used inside an iframe) about loading state changes
+      if (allViewportsImagesShown !== lastMultiViewportImagesShownRef.current) {
+        if (typeof window !== 'undefined' && window.parent && window.parent !== window) {
+          try {
+            // isDisable === true while studies/images are still loading
+            window.parent.postMessage(
+              { isDisable: !allViewportsImagesShown },
+              '*'
+            );
+          } catch (_error) {
+            // Silently ignore postMessage errors
+          }
+        }
+
+        lastMultiViewportImagesShownRef.current = allViewportsImagesShown;
+      }
 
       if (!allViewportsImagesShown) {
         // Disable navigation until all viewports have shown all their images
