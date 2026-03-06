@@ -66,7 +66,13 @@ function App({
 }) {
   const [init, setInit] = useState(null);
   useEffect(() => {
-    if (window.self === window.top) {
+
+    const isWebView =
+      navigator.userAgent.includes("wv") ||
+      navigator.userAgent.includes("ReactNative");
+
+
+    if (window.self === window.top && !isWebView) {
       document.body.innerHTML = "Unauthorized access";
       document.title = "Unauthorized access"
       document.body.style.backgroundColor = 'red';
